@@ -94,7 +94,6 @@ class CustomTitleBar(QWidget):
         self.is_dragging = False
         self.drag_position = QPoint()
 
-    # Update the menu buttons to use Theme
     def init_menu_buttons(self):
         button_width = Theme.scaled_size(Theme.BUTTON_WIDTH)
         button_height = Theme.scaled_size(Theme.BUTTON_HEIGHT)
@@ -141,29 +140,39 @@ class CustomTitleBar(QWidget):
         # Actions
         new_action = QAction('New', self)
         new_action.setShortcut('Ctrl+N')
+        new_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         new_action.triggered.connect(self.parent.new_file)
         menu.addAction(new_action)
+        self.parent.addAction(new_action)  # Add action to the main window
 
         open_action = QAction('Open...', self)
         open_action.setShortcut('Ctrl+O')
+        open_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         open_action.triggered.connect(self.parent.open_file)
         menu.addAction(open_action)
+        self.parent.addAction(open_action)
 
         save_action = QAction('Save', self)
         save_action.setShortcut('Ctrl+S')
+        save_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         save_action.triggered.connect(self.parent.save_file)
         menu.addAction(save_action)
+        self.parent.addAction(save_action)
 
         save_as_action = QAction('Save As...', self)
+        save_as_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         save_as_action.triggered.connect(self.parent.save_file_as)
         menu.addAction(save_as_action)
+        self.parent.addAction(save_as_action)
 
         menu.addSeparator()
 
         exit_action = QAction('Exit', self)
         exit_action.setShortcut('Ctrl+Q')
+        exit_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         exit_action.triggered.connect(self.parent.close)
         menu.addAction(exit_action)
+        self.parent.addAction(exit_action)
 
         return menu
 
@@ -172,30 +181,40 @@ class CustomTitleBar(QWidget):
 
         undo_action = QAction('Undo', self)
         undo_action.setShortcut('Ctrl+Z')
+        undo_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         undo_action.triggered.connect(self.parent.undo_edit)
         menu.addAction(undo_action)
+        self.parent.addAction(undo_action)
 
         redo_action = QAction('Redo', self)
         redo_action.setShortcut('Ctrl+Y')
+        redo_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         redo_action.triggered.connect(self.parent.redo_edit)
         menu.addAction(redo_action)
+        self.parent.addAction(redo_action)
 
         menu.addSeparator()
 
         cut_action = QAction('Cut', self)
         cut_action.setShortcut('Ctrl+X')
+        cut_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         cut_action.triggered.connect(self.parent.cut_text)
         menu.addAction(cut_action)
+        self.parent.addAction(cut_action)
 
         copy_action = QAction('Copy', self)
         copy_action.setShortcut('Ctrl+C')
+        copy_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         copy_action.triggered.connect(self.parent.copy_text)
         menu.addAction(copy_action)
+        self.parent.addAction(copy_action)
 
         paste_action = QAction('Paste', self)
         paste_action.setShortcut('Ctrl+V')
+        paste_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         paste_action.triggered.connect(self.parent.paste_text)
         menu.addAction(paste_action)
+        self.parent.addAction(paste_action)
 
         return menu
 
@@ -204,8 +223,10 @@ class CustomTitleBar(QWidget):
 
         select_all_action = QAction('Select All', self)
         select_all_action.setShortcut('Ctrl+A')
+        select_all_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         select_all_action.triggered.connect(self.parent.select_all_text)
         menu.addAction(select_all_action)
+        self.parent.addAction(select_all_action)
 
         return menu
 

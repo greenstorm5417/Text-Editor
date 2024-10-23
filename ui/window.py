@@ -1,11 +1,12 @@
 from PyQt6.QtWidgets import (
-    QMainWindow, QMessageBox, QFileDialog, QTabWidget, QVBoxLayout, QWidget, QLabel
+    QMainWindow, QMessageBox, QFileDialog, QVBoxLayout, QWidget, QLabel, QTabWidget
 )
 from PyQt6.QtCore import Qt
 from ui.custom_title_bar import CustomTitleBar
 from editor.texteditor import TextEditor
 from editor.theme import Theme
 from ui.custom_tab_bar import CustomTabBar
+
 
 from actions.fileoperations import FileOperationsMixin
 from actions.editactions import EditActionsMixin
@@ -41,13 +42,16 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         self.title_bar = CustomTitleBar(self)
         main_layout.addWidget(self.title_bar)
 
-        # Initialize tab widget with custom tab bar
+        # Initialize QTabWidget
         self.tab_widget = QTabWidget()
-        self.tab_bar = CustomTabBar(self.tab_widget)
-        self.tab_widget.setTabBar(self.tab_bar)
+        self.tab_widget.setTabBar(CustomTabBar())
         self.tab_widget.setTabsClosable(True)
         self.tab_widget.setMovable(True)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
+        self.tab_widget.currentChanged.connect(self.change_tab)
+
+        # Apply theme to QTabWidget
+        self.apply_theme_to_tab_widget()
 
         # Add widgets to layout
         main_layout.addWidget(self.tab_widget)
@@ -60,25 +64,60 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         self.add_new_tab()
         self.no_tabs_label.hide()
 
+    def apply_theme_to_tab_widget(self):
+        """Apply the theme styling to the QTabWidget."""
+        font = Theme.get_tab_font()
+        font_size = font.pointSize()
+        font_family = font.family()
+        font_weight = font.weight()
+
+        # Apply stylesheet for theming
+        self.tab_widget.setStyleSheet(f"""
+            QTabWidget::pane {{
+                border: none;
+            }}
+            QTabBar {{
+                font-family: "{font_family}";
+                font-size: {font_size}pt;
+                font-weight: {font_weight};
+            }}
+            QTabBar::tab {{
+                background: {Theme.TAB_BACKGROUND_COLOR.name()};
+                color: {Theme.TAB_TEXT_COLOR.name()};
+                padding: {Theme.scaled_size(5)}px;
+                min-width: {Theme.scaled_size(100)}px;
+                max-width: {Theme.scaled_size(150)}px;
+            }}
+            QTabBar::tab:selected {{
+                background: {Theme.TAB_ACTIVE_BACKGROUND_COLOR.name()};
+            }}
+            QTabBar::tab:hover {{
+                background: {Theme.HOVER_COLOR.name()};
+            }}
+            QTabBar::close-button {{
+                subcontrol-position: right;
+                image: url('resources/icons/close.png');  /* Update with your icon path */
+            }}
+            QTabBar::close-button:hover {{
+                background: {Theme.CLOSE_BUTTON_HOVER_COLOR.name()};
+            }}
+        """)
+
     def update_tab_title(self, text_editor):
         """Update the tab title based on the TextEditor instance."""
-        for i in range(self.tab_widget.count()):
-            widget = self.tab_widget.widget(i)
-            te = widget.findChild(TextEditor)
-            if te == text_editor:
-                # Remove trailing asterisks and spaces
-                title = self.tab_widget.tabText(i).rstrip('* ').rstrip()
-                
-                if te.is_modified:
-                    if not self.tab_widget.tabText(i).endswith('*'):
-                        new_title = f"{title}*"
-                        self.tab_widget.setTabText(i, new_title)
-                else:
-                    if self.tab_widget.tabText(i).endswith('*'):
-                        new_title = title
-                        self.tab_widget.setTabText(i, new_title)
-                
-                break
+        index = self.tab_widget.indexOf(text_editor.parent())
+        if index != -1:
+            # Remove trailing asterisks and spaces
+            title = self.tab_widget.tabText(index).rstrip('* ').rstrip()
+
+            if text_editor.is_modified:
+                if not self.tab_widget.tabText(index).endswith('*'):
+                    new_title = f"{title}*"
+                    self.tab_widget.setTabText(index, new_title)
+            else:
+                if self.tab_widget.tabText(index).endswith('*'):
+                    new_title = title
+                    self.tab_widget.setTabText(index, new_title)
 
     def new_file(self):
         """Create a new file in a new tab."""
@@ -88,19 +127,19 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
     def add_new_tab(self, content='', title='Untitled', file_path=None):
         """Add a new tab with a TextEditor widget."""
         new_tab = QWidget()
-        layout = QVBoxLayout()
+        layout = QVBoxLayout(new_tab)
         layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
         text_editor = TextEditor(content, file_path, self)  # Pass self to TextEditor
         text_editor.modifiedChanged.connect(self.update_tab_title)  # Connect the signal
         layout.addWidget(text_editor)
-        new_tab.setLayout(layout)
-        self.tab_widget.addTab(new_tab, title)
-        self.tab_widget.setCurrentWidget(new_tab)
+
+        index = self.tab_widget.addTab(new_tab, title)
+        self.tab_widget.setCurrentIndex(index)
 
     def close_tab(self, index):
         """Close the tab at the given index."""
-        current_widget = self.tab_widget.widget(index)
-        text_editor = current_widget.findChild(TextEditor)
+        widget = self.tab_widget.widget(index)
+        text_editor = widget.findChild(TextEditor)
         if text_editor and text_editor.is_modified:
             reply = QMessageBox.question(
                 self, 'Unsaved Changes',
@@ -130,13 +169,23 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
                             self.tab_widget.setTabText(index, file_path.split('/')[-1])
                         except Exception as e:
                             QMessageBox.critical(self, "Error", f"Could not save file:\n{e}")
+                    else:
+                        return  # Do not close the tab
             elif reply == QMessageBox.StandardButton.Cancel:
                 return  # Do not close the tab
             elif reply == QMessageBox.StandardButton.Discard:
                 pass  # Proceed to close the tab
 
         self.tab_widget.removeTab(index)
+        widget.deleteLater()
         if self.tab_widget.count() == 0:
+            self.no_tabs_label.show()
+
+    def change_tab(self, index):
+        """Change the current tab."""
+        if index != -1:
+            self.no_tabs_label.hide()
+        else:
             self.no_tabs_label.show()
 
     def show_about_dialog(self):
