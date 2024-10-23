@@ -5,8 +5,6 @@ from PyQt6.QtCore import Qt
 from ui.custom_title_bar import CustomTitleBar
 from editor.texteditor import TextEditor
 from editor.theme import Theme
-from ui.custom_tab_bar import CustomTabBar
-
 
 from actions.fileoperations import FileOperationsMixin
 from actions.editactions import EditActionsMixin
@@ -36,7 +34,7 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         container = QWidget()
         main_layout = QVBoxLayout(container)
         main_layout.setContentsMargins(0, 0, 0, 0)  # Remove default margins
-        main_layout.setSpacing(0)  # No spacing between widgets
+        main_layout.setSpacing(5)  # No spacing between widgets
 
         # Initialize custom title bar
         self.title_bar = CustomTitleBar(self)
@@ -44,7 +42,6 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
 
         # Initialize QTabWidget
         self.tab_widget = QTabWidget()
-        self.tab_widget.setTabBar(CustomTabBar())
         self.tab_widget.setTabsClosable(True)
         self.tab_widget.setMovable(True)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
@@ -60,9 +57,6 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         # Set container as central widget
         self.setCentralWidget(container)
 
-        # Add initial tab
-        self.add_new_tab()
-        self.no_tabs_label.hide()
 
     def apply_theme_to_tab_widget(self):
         """Apply the theme styling to the QTabWidget."""
@@ -94,13 +88,7 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
             QTabBar::tab:hover {{
                 background: {Theme.HOVER_COLOR.name()};
             }}
-            QTabBar::close-button {{
-                subcontrol-position: right;
-                image: url('resources/icons/close.png');  /* Update with your icon path */
-            }}
-            QTabBar::close-button:hover {{
-                background: {Theme.CLOSE_BUTTON_HOVER_COLOR.name()};
-            }}
+            /* Removed close-button styling since we handle it in CustomTabBar */
         """)
 
     def update_tab_title(self, text_editor):
@@ -128,7 +116,8 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         """Add a new tab with a TextEditor widget."""
         new_tab = QWidget()
         layout = QVBoxLayout(new_tab)
-        layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
+        layout.setContentsMargins(0, 0, 0, 0)  # Re-add margins to tab content
+        layout.setSpacing(5)
         text_editor = TextEditor(content, file_path, self)  # Pass self to TextEditor
         text_editor.modifiedChanged.connect(self.update_tab_title)  # Connect the signal
         layout.addWidget(text_editor)
