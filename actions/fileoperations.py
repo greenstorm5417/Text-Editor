@@ -1,0 +1,109 @@
+from PyQt6.QtWidgets import QMessageBox, QFileDialog
+from PyQt6.QtCore import Qt
+from editor.texteditor import TextEditor
+
+class FileOperationsMixin:
+    def open_file(self):
+        """Open a file dialog to select and open a file."""
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Text Files (*.txt);;All Files (*)")
+        if file_path:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    content = file.read()
+                self.add_new_tab(content, 
+                               title=file_path.split('/')[-1],
+                               file_path=file_path)  # Pass the file path
+                self.no_tabs_label.hide()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Could not open file:\n{e}")
+
+    def save_file(self):
+        """Save the current file."""
+        current_widget = self.tab_widget.currentWidget()
+        if current_widget:
+            text_editor = current_widget.findChild(TextEditor)
+            if text_editor:
+                if text_editor.file_path:  # If file was previously saved
+                    try:
+                        with open(text_editor.file_path, 'w', encoding='utf-8') as file:
+                            file.write(text_editor.toPlainText())
+                        text_editor.set_modified(False)
+                        self.update_tab_title(text_editor)
+                    except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Could not save file:\n{e}")
+                else:
+                    self.save_file_as()
+
+    def save_file_as(self):
+        """Save the current file with a new name."""
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save File As", "Untitled.txt", "Text Files (*.txt);;All Files (*)")
+        if file_path:
+            current_widget = self.tab_widget.currentWidget()
+            if current_widget:
+                text_editor = current_widget.findChild(TextEditor)
+                if text_editor:
+                    try:
+                        with open(file_path, 'w', encoding='utf-8') as file:
+                            file.write(text_editor.toPlainText())
+                        text_editor.file_path = file_path
+                        text_editor.set_modified(False)
+                        self.tab_widget.setTabText(self.tab_widget.currentIndex(), 
+                                                 file_path.split('/')[-1])
+                    except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Could not save file:\n{e}")
+
+    def closeEvent(self, event):
+        """Check for unsaved changes before closing."""
+        unsaved_tabs = []
+        for i in range(self.tab_widget.count()):
+            widget = self.tab_widget.widget(i)
+            text_editor = widget.findChild(TextEditor)
+            if text_editor and text_editor.is_modified:
+                unsaved_tabs.append((i, self.tab_widget.tabText(i).rstrip('*')))
+
+        if unsaved_tabs:
+            tab_names = "\n".join([f"• {name}" for _, name in unsaved_tabs])
+            reply = QMessageBox.question(
+                self, 'Unsaved Changes',
+                f"The following files have unsaved changes:\n{tab_names}\n\nDo you want to save them before exiting?",
+                QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Save
+            )
+            if reply == QMessageBox.StandardButton.Save:
+                for index, name in unsaved_tabs:
+                    self.tab_widget.setCurrentIndex(index)
+                    text_editor = self.tab_widget.widget(index).findChild(TextEditor)
+                    if text_editor:
+                        if text_editor.file_path:
+                            try:
+                                with open(text_editor.file_path, 'w', encoding='utf-8') as file:
+                                    file.write(text_editor.toPlainText())
+                                text_editor.set_modified(False)  # Use setter method
+                                self.update_tab_title(text_editor)
+                            except Exception as e:
+                                QMessageBox.critical(self, "Error", f"Could not save file '{name}':\n{e}")
+                                event.ignore()
+                                return
+                        else:
+                            file_path, _ = QFileDialog.getSaveFileName(self, "Save File As", name, "Text Files (*.txt);;All Files (*)")
+                            if file_path:
+                                try:
+                                    with open(file_path, 'w', encoding='utf-8') as file:
+                                        file.write(text_editor.toPlainText())
+                                    text_editor.file_path = file_path
+                                    text_editor.set_modified(False)  # Use setter method
+                                    self.tab_widget.setTabText(index, file_path.split('/')[-1])
+                                except Exception as e:
+                                    QMessageBox.critical(self, "Error", f"Could not save file '{name}':\n{e}")
+                                    event.ignore()
+                                    return
+                            else:
+                                event.ignore()
+                                return
+                event.accept()
+            elif reply == QMessageBox.StandardButton.Discard:
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            event.accept()

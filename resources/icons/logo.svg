@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+    width="64"
+    height="64"
+    viewBox="0 0 64 64"
+    xmlns="http://www.w3.org/2000/svg"
+>
+    <!-- Document Outline -->
+    <path
+        d="M8 4 H48 L56 12 V60 H8 Z"
+        fill="#ffffff"
+        stroke="#444444"
+        stroke-width="2"
+    />
+    
+    <!-- Folded Corner -->
+    <path
+        d="M48 4 V12 H56"
+        fill="#ffffff"
+        stroke="#444444"
+        stroke-width="2"
+    />
+    
+    <!-- Text Lines -->
+    <line
+        x1="16"
+        y1="20"
+        x2="48"
+        y2="20"
+        stroke="#444444"
+        stroke-width="2"
+    />
+    <line
+        x1="16"
+        y1="28"
+        x2="48"
+        y2="28"
+        stroke="#444444"
+        stroke-width="2"
+    />
+    <line
+        x1="16"
+        y1="36"
+        x2="40"
+        y2="36"
+        stroke="#444444"
+        stroke-width="2"
+    />
+    
+    <!-- Optional: Cursor -->
+    <path
+        d="M20 44 L20 52 L28 48 Z"
+        fill="#444444"
+    />
+</svg>
