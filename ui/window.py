@@ -17,17 +17,11 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)  # Make background opaque
 
-        self.setWindowTitle('My Custom Text Editor')
+        self.setWindowTitle(' Text Editor')
         self.setGeometry(
             100, 100,
             Theme.scaled_size(Theme.WINDOW_WIDTH),
             Theme.scaled_size(Theme.WINDOW_HEIGHT)
-        )
-
-        # Create the no tabs label first
-        self.no_tabs_label = QLabel(
-            "No tabs open. Try opening something!",
-            alignment=Qt.AlignmentFlag.AlignCenter
         )
 
         # Create main container widget and layout
@@ -47,49 +41,56 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         self.tab_widget.currentChanged.connect(self.change_tab)
 
-        # Apply theme to QTabWidget
-        self.apply_theme_to_tab_widget()
+        # Set the font for the tab bar
+        self.tab_widget.tabBar().setFont(Theme.get_tab_font())
 
-        # Add widgets to layout
+        # Apply stylesheet to the tab bar
+        self.apply_tab_bar_stylesheet()
+
+        # Add tab widget to the main layout
         main_layout.addWidget(self.tab_widget)
-        main_layout.addWidget(self.no_tabs_label)
 
         # Set container as central widget
         self.setCentralWidget(container)
 
+    def apply_tab_bar_stylesheet(self):
+        """Apply custom stylesheet to the tab bar using Theme settings."""
+        tab_bar_stylesheet = f"""
+        QTabWidget::pane {{
+            border-top: 2px solid {Theme.color_to_stylesheet(Theme.TAB_BORDER_COLOR)};
+        }}
 
-    def apply_theme_to_tab_widget(self):
-        """Apply the theme styling to the QTabWidget."""
-        font = Theme.get_tab_font()
-        font_size = font.pointSize()
-        font_family = font.family()
-        font_weight = font.weight()
+        QTabBar::tab {{
+            background: {Theme.color_to_stylesheet(Theme.TAB_BACKGROUND_COLOR)};
+            color: {Theme.color_to_stylesheet(Theme.TAB_TEXT_COLOR)};
+            padding: 5px;
+            margin-right: 2px;
+            min-width: 80px;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+        }}
 
-        # Apply stylesheet for theming
-        self.tab_widget.setStyleSheet(f"""
-            QTabWidget::pane {{
-                border: none;
-            }}
-            QTabBar {{
-                font-family: "{font_family}";
-                font-size: {font_size}pt;
-                font-weight: {font_weight};
-            }}
-            QTabBar::tab {{
-                background: {Theme.TAB_BACKGROUND_COLOR.name()};
-                color: {Theme.TAB_TEXT_COLOR.name()};
-                padding: {Theme.scaled_size(5)}px;
-                min-width: {Theme.scaled_size(100)}px;
-                max-width: {Theme.scaled_size(150)}px;
-            }}
-            QTabBar::tab:selected {{
-                background: {Theme.TAB_ACTIVE_BACKGROUND_COLOR.name()};
-            }}
-            QTabBar::tab:hover {{
-                background: {Theme.HOVER_COLOR.name()};
-            }}
-            /* Removed close-button styling since we handle it in CustomTabBar */
-        """)
+        QTabBar::tab:selected {{
+            background: {Theme.color_to_stylesheet(Theme.TAB_ACTIVE_BACKGROUND_COLOR)};
+            color: {Theme.color_to_stylesheet(Theme.TAB_TEXT_COLOR)};
+        }}
+
+        QTabBar::tab:hover {{
+            background: {Theme.color_to_stylesheet(Theme.TAB_HOVER_BACKGROUND_COLOR)};
+        }}
+
+        QTabBar::close-button {{
+            image: url(resources/icons/close_icon.svg);
+            subcontrol-position: right;
+            margin: 0px;
+            padding: 0px;
+        }}
+
+        QTabBar::close-button:hover {{
+            background: {Theme.color_to_stylesheet(Theme.CLOSE_BUTTON_HOVER_COLOR)};
+        }}
+        """
+        self.tab_widget.setStyleSheet(tab_bar_stylesheet)
 
     def update_tab_title(self, text_editor):
         """Update the tab title based on the TextEditor instance."""
@@ -110,13 +111,13 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
     def new_file(self):
         """Create a new file in a new tab."""
         self.add_new_tab()
-        self.no_tabs_label.hide()  # Hide the "no tabs" message when creating a new file
+        # Remove or comment out the no_tabs_label if it's causing issues
 
     def add_new_tab(self, content='', title='Untitled', file_path=None):
         """Add a new tab with a TextEditor widget."""
         new_tab = QWidget()
         layout = QVBoxLayout(new_tab)
-        layout.setContentsMargins(0, 0, 0, 0)  # Re-add margins to tab content
+        layout.setContentsMargins(0, 10, 0, 0)  # Set margins as needed
         layout.setSpacing(5)
         text_editor = TextEditor(content, file_path, self)  # Pass self to TextEditor
         text_editor.modifiedChanged.connect(self.update_tab_title)  # Connect the signal
@@ -167,16 +168,13 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
 
         self.tab_widget.removeTab(index)
         widget.deleteLater()
-        if self.tab_widget.count() == 0:
-            self.no_tabs_label.show()
 
     def change_tab(self, index):
         """Change the current tab."""
         if index != -1:
-            self.no_tabs_label.hide()
+            pass
         else:
-            self.no_tabs_label.show()
-
+            pass
     def show_about_dialog(self):
         """Display an About dialog."""
         QMessageBox.information(self, "About", "My Custom Text Editor\nBuilt with PyQt6")

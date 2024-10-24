@@ -46,7 +46,9 @@ class Theme:
 
     TAB_BACKGROUND_COLOR = QColor("#444444")
     TAB_ACTIVE_BACKGROUND_COLOR = QColor("#555555")
+    TAB_HOVER_BACKGROUND_COLOR = QColor("#666666")
     TAB_TEXT_COLOR = QColor("white")
+    TAB_BORDER_COLOR = QColor("#888888") 
 
     # Sizes
     BUTTON_WIDTH = 80
@@ -83,3 +85,8 @@ class Theme:
         font.setPointSize(int(Theme.TAB_FONT_SIZE * Theme.SCALING_FACTOR))
         font.setWeight(Theme.TAB_FONT_WEIGHT)
         return font
+
+    @staticmethod
+    def color_to_stylesheet(qcolor):
+        """Converts a QColor to a stylesheet-compatible string."""
+        return qcolor.name()
