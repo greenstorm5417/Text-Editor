@@ -67,6 +67,13 @@ class UndoRedoMixin:
                 self.lines.insert(line_idx + i, lines_to_insert[i])
             self.lines[line_idx + len(lines_to_insert) - 1] += after
 
+        self.cursor_line += len(lines_to_insert) - 1
+        self.cursor_column = len(self.lines[self.cursor_line]) - len(after)
+
+        self.set_modified(True)
+        self.updateGeometry()  # Notify layout system
+        self.update()
+
     def delete_text(self, position, text):
         start_line, start_col = position
         end_line, end_col = self.get_end_position(position, text)
@@ -77,6 +84,13 @@ class UndoRedoMixin:
             start_line_text = self.lines[start_line][:start_col]
             end_line_text = self.lines[end_line][end_col:]
             self.lines[start_line:end_line + 1] = [start_line_text + end_line_text]
+
+        self.cursor_line = start_line
+        self.cursor_column = start_col
+
+        self.set_modified(True)
+        self.updateGeometry()  # Notify layout system
+        self.update()
 
     def get_end_position(self, position, text):
         lines = text.split('\n')

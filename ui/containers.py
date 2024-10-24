@@ -2,8 +2,6 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QToolButton, QHBoxLayout, QInputDialog, QMessageBox, QSizePolicy,
     QTreeWidget, QTreeWidgetItem, QMenu
 )
-# import QAction
-
 from PyQt6.QtCore import Qt, QPoint
 from PyQt6.QtGui import QIcon, QDrag, QPainter, QAction
 from editor.theme import Theme

@@ -1,5 +1,3 @@
-# actions/fileoperations.py
-
 from PyQt6.QtWidgets import QMessageBox, QFileDialog
 from editor.texteditor import TextEditor
 
