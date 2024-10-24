@@ -1,7 +1,5 @@
-# ui/custom_tab_widget.py
-
 from PyQt6.QtWidgets import (
-    QWidget, QTabBar, QStackedWidget, QVBoxLayout, QFrame
+    QWidget, QTabBar, QStackedWidget, QVBoxLayout, QSplitter
 )
 from PyQt6.QtCore import Qt
 from editor.theme import Theme
@@ -25,27 +23,34 @@ class CustomTabWidget(QWidget):
         # Apply font from theme
         self.tab_bar.setFont(Theme.get_tab_font())
 
-        # Create a vertical layout
+        # Create a splitter to allow resizing the tab bar
+        self.splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter.addWidget(self.tab_bar)
+        self.splitter.addWidget(self.stacked_widget)
+
+        # Set initial sizes for splitter
+        initial_tab_bar_height = Theme.scaled_size(Theme.TAB_BAR_HEIGHT)
+        self.splitter.setSizes([initial_tab_bar_height, self.height() - initial_tab_bar_height])
+
+        # Ensure the splitter handle is visible and set the cursor
+        self.splitter.setHandleWidth(3)
+        handle = self.splitter.handle(1)
+        handle.setCursor(Qt.CursorShape.SplitVCursor)
+
+        # Style the splitter handle
+        self.splitter.setStyleSheet(f"""
+        QSplitter::handle {{
+            background-color: {Theme.color_to_stylesheet(Theme.TAB_BORDER_COLOR)};
+        }}
+        """)
+
+        # Set up the layout for CustomTabWidget
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)  # No spacing between widgets
+        layout.setContentsMargins(0, 0, 0, 0)  # Ensure no extra margins
+        layout.setSpacing(0)  # Ensure no extra spacing between tab bar and content
+        layout.addWidget(self.splitter)
 
-        # Add the tab bar to the layout
-        layout.addWidget(self.tab_bar)
-
-        # Add a line separator
-        self.separator_line = QFrame()
-        self.separator_line.setFrameShape(QFrame.Shape.HLine)
-        self.separator_line.setFrameShadow(QFrame.Shadow.Plain)
-        # Set the color and thickness of the line
-        self.separator_line.setStyleSheet(f"color: {Theme.color_to_stylesheet(Theme.TAB_BORDER_COLOR)};")
-        self.separator_line.setFixedHeight(2)
-        layout.addWidget(self.separator_line)
-
-        # Add the stacked widget
-        layout.addWidget(self.stacked_widget)
-
-        # Apply stylesheets
+        # Apply stylesheets to the tab bar
         self.apply_tab_bar_stylesheet()
 
     def addTab(self, widget, title):
@@ -67,6 +72,10 @@ class CustomTabWidget(QWidget):
 
     def currentIndex(self):
         return self.tab_bar.currentIndex()
+    
+    def currentWidget(self):
+        """Return the current widget."""
+        return self.stacked_widget.currentWidget()
 
     def count(self):
         return self.tab_bar.count()
@@ -86,6 +95,12 @@ class CustomTabWidget(QWidget):
     def apply_tab_bar_stylesheet(self):
         """Apply custom stylesheet to the tab bar using Theme settings."""
         tab_bar_stylesheet = f"""
+        QTabBar {{
+            background: {Theme.color_to_stylesheet(Theme.TAB_BACKGROUND_COLOR)};
+            min-height: {Theme.scaled_size(Theme.TAB_BAR_HEIGHT)}px
+            
+
+        }}
         QTabBar::tab {{
             background: {Theme.color_to_stylesheet(Theme.TAB_BACKGROUND_COLOR)};
             color: {Theme.color_to_stylesheet(Theme.TAB_TEXT_COLOR)};

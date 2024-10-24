@@ -1,5 +1,3 @@
-# editor/texteditor.py
-
 from PyQt6.QtWidgets import QWidget, QApplication
 from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtCore import Qt, QTimer, QEvent, pyqtSignal

@@ -1,4 +1,3 @@
-# editor/theme.py
 from PyQt6.QtGui import QFont, QColor
 from PyQt6.QtWidgets import QApplication
 
@@ -58,8 +57,11 @@ class Theme:
     ICON_CONTAINER_SIZE = 40
     WINDOW_WIDTH = 1000
     WINDOW_HEIGHT = 700
-    TAB_BAR_HEIGHT = 30
-    TAB_BAR_HEIGHT = 30
+    TAB_BAR_HEIGHT = 35
+
+    # Lines
+    LINE_COLOR = QColor("#888888")  # Default gray color
+    LINE_WIDTH = 2  # Default line width (in pixels)
 
     @staticmethod
     def get_default_font():
