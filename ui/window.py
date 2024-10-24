@@ -11,6 +11,7 @@ from actions.editactions import EditActionsMixin
 
 from ui.custom_tab_widget import CustomTabWidget
 from ui.sidebar import Sidebar
+from ui.containers import ContainersManager, SettingsContainer, PluginsContainer
 
 class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
     def __init__(self):
@@ -62,14 +63,11 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         v_line1.setStyleSheet(f"background-color: {Theme.color_to_stylesheet(Theme.LINE_COLOR)};")
         content_layout.addWidget(v_line1)
 
-        # Create container area (to hold the containers)
-        self.container_area = QWidget()
-        self.container_area.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
-        self.container_layout = QVBoxLayout(self.container_area)
-        self.container_layout.setContentsMargins(0, 0, 0, 0)  # Ensure no extra margins
-        self.container_layout.setSpacing(0)
-        self.container_area.setVisible(False)
-        content_layout.addWidget(self.container_area)
+        # Initialize ContainersManager
+        self.containers_manager = ContainersManager(self)
+        self.containers_manager.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        self.containers_manager.setVisible(False)  # Initially hidden
+        content_layout.addWidget(self.containers_manager)
 
         # Add a vertical line separator between containers and tab widget
         self.v_line2 = QFrame()
@@ -93,64 +91,42 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         # Add an initial tab
         self.add_new_tab()
 
-        # Initialize containers
-        self.containers = {}
-        self.current_container_index = None
-
-        # Add icons to the sidebar
+        # Add icons to the sidebar and corresponding containers
         self.add_sidebar_icons()
 
         # Connect sidebar signals
         self.sidebar.icon_clicked.connect(self.toggle_container)
 
     def add_sidebar_icons(self):
-        # Use the same logo for both icons for now
-        icon_path = "resources/icons/logo.svg"
+        # Define icons and their corresponding container indices
+        icons = [
+            ("resources/icons/logo.svg", 1),
+            ("resources/icons/logo.svg", 2)
+        ]
 
-        # Add first icon
-        self.sidebar.add_icon(icon_path, index=1)
-        # Create first container
-        container1 = QWidget()
-        container1.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
-        container1_layout = QVBoxLayout(container1)
-        container1_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        label1 = QLabel("Container 1")
-        container1_layout.addWidget(label1)
-        self.containers[1] = container1
-
-        # Add second icon
-        self.sidebar.add_icon(icon_path, index=2)
-        # Create second container
-        container2 = QWidget()
-        container2.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
-        container2_layout = QVBoxLayout(container2)
-        container2_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        label2 = QLabel("Container 2")
-        container2_layout.addWidget(label2)
-        self.containers[2] = container2
+        for icon_path, index in icons:
+            self.sidebar.add_icon(icon_path, index)
+            # Create and add containers through ContainersManager
+            if index == 1:
+                container = SettingsContainer()
+            elif index == 2:
+                container = PluginsContainer()
+            else:
+                container = QLabel(f"Container {index} Content")
+                container.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.containers_manager.add_container(index, f"Container {index}", content_widget=container)
 
     def toggle_container(self, index):
-        # If the container is already visible and is the current one, hide it
-        if self.current_container_index == index:
-            # Remove existing container
-            self.clear_container_layout()
-            self.container_area.setVisible(False)
-            self.v_line2.setVisible(False)  # Hide vertical line
-            self.current_container_index = None
+        """
+        Toggles the visibility of a container based on the clicked sidebar icon.
+        """
+        self.containers_manager.show_container(index)
+        if self.containers_manager.current_container is not None:
+            self.v_line2.setVisible(True)
+            self.containers_manager.setVisible(True)
         else:
-            # Remove existing container if any
-            self.clear_container_layout()
-            # Add new container
-            self.container_layout.addWidget(self.containers[index])
-            self.container_area.setVisible(True)
-            self.v_line2.setVisible(True)  # Show vertical line
-            self.current_container_index = index
-
-    def clear_container_layout(self):
-        while self.container_layout.count():
-            child = self.container_layout.takeAt(0)
-            if child.widget():
-                child.widget().setParent(None)
+            self.v_line2.setVisible(False)
+            self.containers_manager.setVisible(False)
 
     def new_file(self):
         """Create a new file in a new tab."""
