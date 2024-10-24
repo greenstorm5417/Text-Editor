@@ -152,6 +152,14 @@ class CustomTitleBar(QWidget):
         menu.addAction(open_action)
         self.parent.addAction(open_action)
 
+        # **Add "Open Folder" Action**
+        open_folder_action = QAction('Open Folder...', self)
+        open_folder_action.setShortcut('Ctrl+Shift+O')
+        open_folder_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        open_folder_action.triggered.connect(self.parent.open_folder)  # Connect to open_folder method
+        menu.addAction(open_folder_action)
+        self.parent.addAction(open_folder_action)
+
         save_action = QAction('Save', self)
         save_action.setShortcut('Ctrl+S')
         save_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)

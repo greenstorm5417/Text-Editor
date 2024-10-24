@@ -11,7 +11,7 @@ from actions.editactions import EditActionsMixin
 
 from ui.custom_tab_widget import CustomTabWidget
 from ui.sidebar import Sidebar
-from ui.containers import ContainersManager, SettingsContainer, PluginsContainer
+from ui.containers import ContainersManager, SettingsContainer, PluginsContainer, FileTreeContainer  # Import FileTreeContainer
 
 class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
     def __init__(self):
@@ -99,17 +99,21 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
 
     def add_sidebar_icons(self):
         # Define icons and their corresponding container indices
+        # Assign index=1 for File Tree, index=2 for Settings, index=3 for Plugins
         icons = [
-            ("resources/icons/logo.svg", 1),
-            ("resources/icons/logo.svg", 2)
+            ("resources/icons/logo.svg", 1),  
+            ("resources/icons/logo.svg", 2), 
+            ("resources/icons/logo.svg", 3)  
         ]
 
         for icon_path, index in icons:
             self.sidebar.add_icon(icon_path, index)
             # Create and add containers through ContainersManager
             if index == 1:
-                container = SettingsContainer()
+                container = container = FileTreeContainer(self)
             elif index == 2:
+                container = SettingsContainer()
+            elif index == 3:
                 container = PluginsContainer()
             else:
                 container = QLabel(f"Container {index} Content")
@@ -128,12 +132,17 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
             self.v_line2.setVisible(False)
             self.containers_manager.setVisible(False)
 
-    def new_file(self):
-        """Create a new file in a new tab."""
-        self.add_new_tab()
-
     def add_new_tab(self, content='', title='Untitled', file_path=None):
         """Add a new tab with a TextEditor widget."""
+        # Check if the file is already open
+        if file_path:
+            for index in range(self.tab_widget.count()):
+                widget = self.tab_widget.widget(index)
+                text_editor = widget.findChild(TextEditor)
+                if text_editor and text_editor.file_path == file_path:
+                    self.tab_widget.setCurrentIndex(index)
+                    return index
+
         new_tab = QWidget()
         layout = QVBoxLayout(new_tab)
         layout.setContentsMargins(0, 0, 0, 0)  # Adjust margins as needed
@@ -144,6 +153,13 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
 
         index = self.tab_widget.addTab(new_tab, title)
         self.tab_widget.setCurrentIndex(index)
+        return index
+    
+    def new_file(self):
+        """Create a new file in a new tab."""
+        self.add_new_tab()
+
+
 
     def close_tab(self, index):
         """Close the tab at the given index."""
@@ -215,9 +231,6 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         """Display an About dialog."""
         QMessageBox.information(self, "About", "My Custom Text Editor\nBuilt with PyQt6")
 
-    def new_file(self):
-        """Create a new file in a new tab."""
-        self.add_new_tab()
 
     def add_new_tab(self, content='', title='Untitled', file_path=None):
         """Add a new tab with a TextEditor widget."""

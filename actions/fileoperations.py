@@ -1,4 +1,5 @@
 # actions/fileoperations.py
+
 from PyQt6.QtWidgets import QMessageBox, QFileDialog
 from editor.texteditor import TextEditor
 
@@ -16,6 +17,19 @@ class FileOperationsMixin:
                 self.no_tabs_label.hide()
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Could not open file:\n{e}")
+
+    def open_folder(self):
+        """Open a folder dialog to select a directory and load it in the FileTreeContainer."""
+        folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", "", QFileDialog.Option.ShowDirsOnly)
+        if folder_path:
+            try:
+                # Access the FileTreeContainer using its index (assuming index=1)
+                file_tree_container = self.containers_manager.containers.get(1)
+                if file_tree_container:
+                    file_tree_container.set_root_directory(folder_path)
+                    self.containers_manager.show_container(1)  # Show the FileTreeContainer
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Could not open folder:\n{e}")
 
     def save_file(self):
         """Save the current file."""
