@@ -1,3 +1,5 @@
+# editor/texteditor.py
+
 from PyQt6.QtWidgets import QWidget, QApplication
 from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtCore import Qt, QTimer, QEvent, pyqtSignal
@@ -8,10 +10,10 @@ from editor.selection_mixin import SelectionMixin
 from editor.clipboard_mixin import ClipboardMixin
 from editor.undoredo_mixin import UndoRedoMixin
 from editor.painting_mixin import PaintingMixin
-from editor.theme import Theme
 
 import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 class TextEditor(QWidget, CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, PaintingMixin):
     # Signal to notify MainWindow about modification state changes
@@ -102,6 +104,7 @@ class TextEditor(QWidget, CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoM
                 self.cursor_line -= 1
                 self.cursor_column = len(prev_line)
                 self.lines[self.cursor_line] = prev_line + curr_line
+            self.set_modified(True)
             self.update()
         elif event.key() == Qt.Key.Key_Delete:
             if self.has_selection():
@@ -122,6 +125,7 @@ class TextEditor(QWidget, CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoM
                     self.add_undo_action('delete', (self.cursor_line, len(line)), deleted_text, cursor_before)
                     next_line = self.lines.pop(self.cursor_line + 1)
                     self.lines[self.cursor_line] += next_line
+            self.set_modified(True)
             self.update()
         elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             if self.has_selection():
@@ -139,6 +143,7 @@ class TextEditor(QWidget, CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoM
             self.cursor_line += 1
             self.cursor_column = 0
             self.clear_selection()
+            self.set_modified(True)
             self.update()
         elif event.key() == Qt.Key.Key_Tab:
             if self.has_selection():
@@ -152,6 +157,7 @@ class TextEditor(QWidget, CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoM
             line = self.lines[self.cursor_line]
             self.lines[self.cursor_line] = line[:self.cursor_column] + tab_spaces + line[self.cursor_column:]
             self.cursor_column += len(tab_spaces)
+            self.set_modified(True)
             self.update()
         elif len(event.text()) > 0 and event.text().isprintable():
             if self.has_selection():
@@ -166,6 +172,7 @@ class TextEditor(QWidget, CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoM
                 line = self.lines[self.cursor_line]
                 self.lines[self.cursor_line] = line[:self.cursor_column] + text + line[self.cursor_column:]
                 self.cursor_column += len(text)
+                self.set_modified(True)
                 self.update()
         else:
             # Handle other keys

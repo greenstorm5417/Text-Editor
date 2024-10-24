@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (
-    QMainWindow, QMessageBox, QFileDialog, QVBoxLayout, QWidget, QLabel, QTabWidget
+    QMainWindow, QMessageBox, QFileDialog, QVBoxLayout, QWidget
 )
 from PyQt6.QtCore import Qt
 from ui.custom_title_bar import CustomTitleBar
@@ -9,6 +9,9 @@ from editor.theme import Theme
 from actions.fileoperations import FileOperationsMixin
 from actions.editactions import EditActionsMixin
 
+from ui.custom_tab_widget import CustomTabWidget  # Import the custom tab widget
+
+
 class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
     def __init__(self):
         super().__init__()
@@ -17,7 +20,7 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)  # Make background opaque
 
-        self.setWindowTitle(' Text Editor')
+        self.setWindowTitle('Text Editor')
         self.setGeometry(
             100, 100,
             Theme.scaled_size(Theme.WINDOW_WIDTH),
@@ -34,91 +37,26 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         self.title_bar = CustomTitleBar(self)
         main_layout.addWidget(self.title_bar)
 
-        # Initialize QTabWidget
-        self.tab_widget = QTabWidget()
-        self.tab_widget.setTabsClosable(True)
-        self.tab_widget.setMovable(True)
-        self.tab_widget.tabCloseRequested.connect(self.close_tab)
-        self.tab_widget.currentChanged.connect(self.change_tab)
-
-        # Set the font for the tab bar
-        self.tab_widget.tabBar().setFont(Theme.get_tab_font())
-
-        # Apply stylesheet to the tab bar
-        self.apply_tab_bar_stylesheet()
-
-        # Add tab widget to the main layout
+        # Initialize CustomTabWidget
+        self.tab_widget = CustomTabWidget(self)
         main_layout.addWidget(self.tab_widget)
 
         # Set container as central widget
         self.setCentralWidget(container)
 
-    def apply_tab_bar_stylesheet(self):
-        """Apply custom stylesheet to the tab bar using Theme settings."""
-        tab_bar_stylesheet = f"""
-        QTabWidget::pane {{
-            border-top: 2px solid {Theme.color_to_stylesheet(Theme.TAB_BORDER_COLOR)};
-        }}
-
-        QTabBar::tab {{
-            background: {Theme.color_to_stylesheet(Theme.TAB_BACKGROUND_COLOR)};
-            color: {Theme.color_to_stylesheet(Theme.TAB_TEXT_COLOR)};
-            padding: 5px;
-            margin-right: 2px;
-            min-width: 80px;
-            border-top-left-radius: 4px;
-            border-top-right-radius: 4px;
-        }}
-
-        QTabBar::tab:selected {{
-            background: {Theme.color_to_stylesheet(Theme.TAB_ACTIVE_BACKGROUND_COLOR)};
-            color: {Theme.color_to_stylesheet(Theme.TAB_TEXT_COLOR)};
-        }}
-
-        QTabBar::tab:hover {{
-            background: {Theme.color_to_stylesheet(Theme.TAB_HOVER_BACKGROUND_COLOR)};
-        }}
-
-        QTabBar::close-button {{
-            image: url(resources/icons/close_icon.svg);
-            subcontrol-position: right;
-            margin: 0px;
-            padding: 0px;
-        }}
-
-        QTabBar::close-button:hover {{
-            background: {Theme.color_to_stylesheet(Theme.CLOSE_BUTTON_HOVER_COLOR)};
-        }}
-        """
-        self.tab_widget.setStyleSheet(tab_bar_stylesheet)
-
-    def update_tab_title(self, text_editor):
-        """Update the tab title based on the TextEditor instance."""
-        index = self.tab_widget.indexOf(text_editor.parent())
-        if index != -1:
-            # Remove trailing asterisks and spaces
-            title = self.tab_widget.tabText(index).rstrip('* ').rstrip()
-
-            if text_editor.is_modified:
-                if not self.tab_widget.tabText(index).endswith('*'):
-                    new_title = f"{title}*"
-                    self.tab_widget.setTabText(index, new_title)
-            else:
-                if self.tab_widget.tabText(index).endswith('*'):
-                    new_title = title
-                    self.tab_widget.setTabText(index, new_title)
+        # Add an initial tab
+        self.add_new_tab()
 
     def new_file(self):
         """Create a new file in a new tab."""
         self.add_new_tab()
-        # Remove or comment out the no_tabs_label if it's causing issues
 
     def add_new_tab(self, content='', title='Untitled', file_path=None):
         """Add a new tab with a TextEditor widget."""
         new_tab = QWidget()
         layout = QVBoxLayout(new_tab)
-        layout.setContentsMargins(0, 10, 0, 0)  # Set margins as needed
-        layout.setSpacing(5)
+        layout.setContentsMargins(0, 0, 10, 0)  # Adjust margins as needed
+        layout.setSpacing(0)
         text_editor = TextEditor(content, file_path, self)  # Pass self to TextEditor
         text_editor.modifiedChanged.connect(self.update_tab_title)  # Connect the signal
         layout.addWidget(text_editor)
@@ -149,7 +87,9 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
                         QMessageBox.critical(self, "Error", f"Could not save file:\n{e}")
                         return  # Do not close the tab
                 else:
-                    file_path, _ = QFileDialog.getSaveFileName(self, "Save File As", "Untitled.txt", "Text Files (*.txt);;All Files (*)")
+                    file_path, _ = QFileDialog.getSaveFileName(
+                        self, "Save File As", "Untitled.txt", "Text Files (*.txt);;All Files (*)"
+                    )
                     if file_path:
                         try:
                             with open(file_path, 'w', encoding='utf-8') as file:
@@ -172,9 +112,24 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
     def change_tab(self, index):
         """Change the current tab."""
         if index != -1:
-            pass
-        else:
-            pass
+            self.tab_widget.setCurrentIndex(index)
+
+    def update_tab_title(self, text_editor):
+        """Update the tab title based on the TextEditor instance."""
+        index = self.tab_widget.indexOf(text_editor.parent())
+        if index != -1:
+            # Remove trailing asterisks and spaces
+            title = self.tab_widget.tabText(index).rstrip('* ').rstrip()
+
+            if text_editor.is_modified:
+                if not self.tab_widget.tabText(index).endswith('*'):
+                    new_title = f"{title}*"
+                    self.tab_widget.setTabText(index, new_title)
+            else:
+                if self.tab_widget.tabText(index).endswith('*'):
+                    new_title = title
+                    self.tab_widget.setTabText(index, new_title)
+
     def show_about_dialog(self):
         """Display an About dialog."""
         QMessageBox.information(self, "About", "My Custom Text Editor\nBuilt with PyQt6")

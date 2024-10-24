@@ -59,6 +59,7 @@ class Theme:
     WINDOW_WIDTH = 1000
     WINDOW_HEIGHT = 700
     TAB_BAR_HEIGHT = 30
+    TAB_BAR_HEIGHT = 30
 
     @staticmethod
     def get_default_font():
