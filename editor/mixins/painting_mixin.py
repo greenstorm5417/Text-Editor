@@ -8,7 +8,6 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 
 class PaintingMixin:
     def paintEvent(self, event):
-        super().paintEvent(event)
         painter = QPainter(self.viewport())
         painter.setFont(self.font())
         fm = painter.fontMetrics()

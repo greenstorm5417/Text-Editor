@@ -23,35 +23,73 @@ class FileTreeWidget(QTreeWidget):
     def __init__(self, main_window, parent=None):
         super().__init__(parent)
         self.setHeaderHidden(True)
+        self.setFont(Theme.get_default_font())
+        
+        # Configure drag and drop
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True)
         self.setDragDropMode(QTreeWidget.DragDropMode.InternalMove)
         self.setSelectionMode(QTreeWidget.SelectionMode.SingleSelection)
         self.setSelectionBehavior(QTreeWidget.SelectionBehavior.SelectItems)
-        self.setFont(Theme.get_default_font())  # Set font directly
+
+                
+        # Apply theme styling
+
+        self.setStyleSheet(f"""
+            QTreeWidget {{
+                background-color: {Theme.FILE_TREE_BACKGROUND_COLOR.name()};
+                color: {Theme.FILE_TREE_TEXT_COLOR.name()};
+                border: none;
+                outline: none;
+            }}
+            QTreeWidget::item {{
+                padding: 4px;
+                border: none;
+            }}
+            QTreeWidget::item:selected {{
+                background-color: {Theme.FILE_TREE_SELECTED_BACKGROUND.name()};
+                color: {Theme.FILE_TREE_SELECTED_TEXT_COLOR.name()};
+            }}
+            QTreeWidget::item:hover {{
+                background-color: {Theme.FILE_TREE_HOVER_BACKGROUND.name()};
+            }}
+            QTreeWidget::branch {{
+                background-color: {Theme.FILE_TREE_BACKGROUND_COLOR.name()};
+            }}
+            QTreeWidget::branch:selected {{
+                background-color: {Theme.FILE_TREE_SELECTED_BACKGROUND.name()};
+            }}
+            QTreeWidget::branch:has-children:!has-siblings:closed,
+            QTreeWidget::branch:closed:has-children:has-siblings {{
+                border-image: none;
+                image: url(resources/icons/chevron-right.svg);
+                padding: 2px;
+            }}
+            QTreeWidget::branch:open:has-children:!has-siblings,
+            QTreeWidget::branch:open:has-children:has-siblings {{
+                border-image: none;
+                image: url(resources/icons/chevron-down.svg);
+                padding: 2px;
+            }}
+        """)
 
         # Assign default icons using SVGs
+        # Initialize icons
         self.dir_icon = QIcon("resources/icons/default_folder.svg")
         self.default_file_icon = QIcon("resources/icons/default_file.svg")
-
-        # Path to custom file icons
         self.file_icons_path = os.path.join(os.path.dirname(__file__), '..', '..', 'resources', 'file_icons')
-
-        # Cache for file icons
         self.file_icon_cache = {}
-
-        # Initialize show_hidden
-        self.show_hidden = False  # Initialize the show_hidden attribute
-
+        
+        # Initialize state
+        self.show_hidden = False
+        self.main_window = main_window
+        
         # Connect signals
         self.itemExpanded.connect(self.on_item_expanded)
-        self.itemClicked.connect(self.on_item_clicked)  # Connect itemClicked signal
-
-        # Enable custom context menu
+        self.itemClicked.connect(self.on_item_clicked)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.open_context_menu)
-        self.main_window = main_window
 
     def get_file_icon(self, file_path):
         """
@@ -283,82 +321,121 @@ class FileTreeContainer(QWidget):
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)  # Minimal padding for a slimmer look
-        layout.setSpacing(5)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # Set container width from theme
+        self.setFixedWidth(Theme.scaled_size(Theme.FILE_TREE_CONTAINER_WIDTH))
+        
+        # Create toolbar widget
+        self.toolbar = QWidget()
+        self.toolbar.setFixedHeight(Theme.scaled_size(Theme.TOOLBAR_BUTTON_HEIGHT))
+        self.toolbar.setStyleSheet(f"""
+            QWidget {{
+                background-color: {Theme.FILE_TREE_HEADER_BACKGROUND.name()};
+                border-bottom: 1px solid {Theme.FILE_TREE_GRID_COLOR.name()};
+            }}
+        """)
+        
+        toolbar_layout = QHBoxLayout(self.toolbar)
+        toolbar_layout.setContentsMargins(
+            Theme.TOOLBAR_BUTTON_MARGIN,
+            Theme.TOOLBAR_BUTTON_MARGIN,
+            Theme.TOOLBAR_BUTTON_MARGIN,
+            Theme.TOOLBAR_BUTTON_MARGIN
+        )
+        toolbar_layout.setSpacing(Theme.TOOLBAR_BUTTON_MARGIN)
 
-        # Create a widget to hold the buttons and title
-        self.button_widget = QWidget()
-        self.button_layout = QHBoxLayout(self.button_widget)
-        self.button_layout.setContentsMargins(0, 0, 0, 0)
-        self.button_layout.setSpacing(5)
+        # Create toolbar buttons with theme styling
+        button_style = f"""
+            QToolButton {{
+                background-color: {Theme.SIDEBAR_BUTTON_COLOR.name()};
+                border: none;
+                border-radius: {Theme.TOOLBAR_BUTTON_RADIUS}px;
+                padding: 4px;
+            }}
+            QToolButton:hover {{
+                background-color: {Theme.SIDEBAR_BUTTON_HOVER_COLOR.name()};
+            }}
+            QToolButton:pressed {{
+                background-color: {Theme.SIDEBAR_BUTTON_ACTIVE_COLOR.name()};
+            }}
+        """
 
         # Create File Button
         self.create_file_button = QToolButton()
-        self.create_file_button.setIcon(QIcon("resources/icons/new_file.svg"))  # Updated to SVG
+        self.create_file_button.setIcon(QIcon("resources/icons/new_file.svg"))
         self.create_file_button.setToolTip("Create New File")
+        self.create_file_button.setStyleSheet(button_style)
         self.create_file_button.clicked.connect(self.create_file)
-        self.button_layout.addWidget(self.create_file_button)
+        toolbar_layout.addWidget(self.create_file_button)
 
         # Create Folder Button
         self.create_folder_button = QToolButton()
-        self.create_folder_button.setIcon(QIcon("resources/icons/new_folder.svg"))  # Updated to SVG
+        self.create_folder_button.setIcon(QIcon("resources/icons/new_folder.svg"))
         self.create_folder_button.setToolTip("Create New Folder")
+        self.create_folder_button.setStyleSheet(button_style)
         self.create_folder_button.clicked.connect(self.create_folder)
-        self.button_layout.addWidget(self.create_folder_button)
+        toolbar_layout.addWidget(self.create_folder_button)
 
         # Toggle Hidden Files Button
         self.toggle_hidden_button = QToolButton()
-        self.toggle_hidden_button.setIcon(QIcon("resources/icons/show_hidden.svg"))  # Updated to SVG
+        self.toggle_hidden_button.setIcon(QIcon("resources/icons/show_hidden.svg"))
         self.toggle_hidden_button.setCheckable(True)
         self.toggle_hidden_button.setToolTip("Show Hidden Files")
+        self.toggle_hidden_button.setStyleSheet(button_style)
         self.toggle_hidden_button.clicked.connect(self.toggle_hidden_files)
-        self.button_layout.addWidget(self.toggle_hidden_button)
+        toolbar_layout.addWidget(self.toggle_hidden_button)
 
-        # Add a stretch to push the title_label to the right
-        self.button_layout.addStretch()
+        # Add stretch to push the title to the right
+        toolbar_layout.addStretch()
 
-        # Create Title Label
+        # Create Title Label with theme styling
         self.title_label = QLabel("File Tree")
         self.title_label.setFont(Theme.get_default_font())
-        self.title_label.setStyleSheet(f"color: {Theme.TEXT_COLOR.name()};")
-        self.button_layout.addWidget(self.title_label)
+        self.title_label.setStyleSheet(f"color: {Theme.FILE_TREE_HEADER_TEXT_COLOR.name()};")
+        toolbar_layout.addWidget(self.title_label)
 
-        # Align the title_label to the right
-        self.button_layout.setAlignment(self.title_label, Qt.AlignmentFlag.AlignRight)
+        # Add toolbar to main layout
+        layout.addWidget(self.toolbar)
 
-        # Add button_widget to the main layout
-        layout.addWidget(self.button_widget)
-        self.button_widget.setVisible(False)  # Initially hidden
-
-        # Initialize QTreeWidget
+        # Initialize tree widget
         self.tree = FileTreeWidget(self.main_window, self)
-        self.tree.setStyleSheet(f"""
-            QTreeWidget {{
-                background-color: {Theme.BACKGROUND_COLOR.name()};
-                color: {Theme.TEXT_COLOR.name()};
-                border: none;
-            }}
-            QTreeWidget::item {{
-                padding-left: 20px;  /* Adjusted padding to make space for arrows */
-                padding-top: 4px;
-                padding-bottom: 4px;
-            }}
-            QTreeWidget::item:selected {{
-                background-color: {Theme.SELECTION_COLOR.name()};
-                color: {Theme.TEXT_COLOR.name()};
-            }}
-        """)
-        self.tree.setVisible(False)  # Hidden initially
+        layout.addWidget(self.tree)
 
-        # Placeholder Label
+        # Initialize and style placeholder label
         self.placeholder_label = QLabel("Open a folder to display its contents.")
         self.placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.placeholder_label.setFont(Theme.get_default_font())
-        self.placeholder_label.setStyleSheet(f"color: {Theme.TEXT_COLOR.name()};")
+        self.placeholder_label.setStyleSheet(f"""
+            QLabel {{
+                color: {Theme.FILE_TREE_TEXT_COLOR.name()};
+                background-color: {Theme.FILE_TREE_BACKGROUND_COLOR.name()};
+                padding: 20px;
+            }}
+        """)
         layout.addWidget(self.placeholder_label)
 
-        layout.addWidget(self.tree)
+        # Set initial visibility
+        self.tree.setVisible(False)
+        self.toolbar.setVisible(False)
+        self.placeholder_label.setVisible(True)
 
+    def create_context_menu(self):
+        menu = QMenu(self)
+        menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {Theme.FILE_TREE_BACKGROUND_COLOR.name()};
+                color: {Theme.FILE_TREE_TEXT_COLOR.name()};
+                border: 1px solid {Theme.FILE_TREE_GRID_COLOR.name()};
+            }}
+            QMenu::item:selected {{
+                background-color: {Theme.FILE_TREE_SELECTED_BACKGROUND.name()};
+            }}
+        """)
+        return menu
+
+    
     def set_root_directory(self, path):
         """
         Set the root directory and populate the tree.
@@ -369,14 +446,14 @@ class FileTreeContainer(QWidget):
             self.populate_tree()
             self.placeholder_label.setVisible(False)
             self.tree.setVisible(True)
-            self.button_widget.setVisible(True)
+            self.toolbar.setVisible(True)
             self.toggle_hidden_button.setChecked(False)
             self.toggle_hidden_button.setToolTip("Show Hidden Files")
-            self.toggle_hidden_button.setIcon(QIcon("resources/icons/show_hidden.svg"))  # Ensure SVG is set correctly
+            self.toggle_hidden_button.setIcon(QIcon("resources/icons/show_hidden.svg"))
         else:
             self.placeholder_label.setVisible(True)
             self.tree.setVisible(False)
-            self.button_widget.setVisible(False)
+            self.toolbar.setVisible(False)
 
     def populate_tree(self):
         """Populate the tree widget with the directory structure."""

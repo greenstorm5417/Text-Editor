@@ -291,33 +291,51 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
 
     def save_settings(self):
         """Save the current state of the application to a JSON file."""
-        settings = {}
+        settings = {
+            "window": {
+                "geometry": {
+                    "x": self.x(),
+                    "y": self.y(),
+                    "width": self.width(),
+                    "height": self.height(),
+                    "maximized": self.isMaximized()
+                }
+            },
+            "file_tree": {
+                "current_root": None,
+                "expanded_paths": [],
+                "visible": False
+            },
+            "open_tabs": []
+        }
 
-        # ===== Save File Tree State =====
-        file_tree_container = self.containers_manager.containers.get(1)  # Assuming index=1 for FileTreeContainer
+        # Save File Tree State
+        file_tree_container = self.containers_manager.containers.get(1)
         if file_tree_container and file_tree_container.current_root:
-            settings["current_root"] = file_tree_container.current_root
-            settings["expanded_paths"] = file_tree_container.get_expanded_paths()
-            settings["file_tree_container_open"] = (self.containers_manager.current_container == 1)
-        else:
-            settings["current_root"] = None
-            settings["expanded_paths"] = []
-            settings["file_tree_container_open"] = False
+            settings["file_tree"].update({
+                "current_root": file_tree_container.current_root,
+                "expanded_paths": file_tree_container.get_expanded_paths(),
+                "visible": (self.containers_manager.current_container == 1)
+            })
 
-        # ===== Save Open Tabs =====
-        open_tabs = []
+        # Save Open Tabs with additional metadata
         for index in range(self.tab_widget.count()):
             widget = self.tab_widget.widget(index)
             text_editor = widget.findChild(TextEditor)
-            if text_editor and text_editor.file_path:
-                open_tabs.append(text_editor.file_path)
-            else:
-                # For unsaved files, you might want to handle them differently
-                pass  # Currently skipping unsaved files
-        settings["open_tabs"] = open_tabs
+            if text_editor:
+                tab_data = {
+                    "file_path": text_editor.file_path,
+                    "cursor_position": (text_editor.cursor_line, text_editor.cursor_column),
+                    "scroll_position": {
+                        "vertical": text_editor.verticalScrollBar().value(),
+                        "horizontal": text_editor.horizontalScrollBar().value()
+                    }
+                }
+                if text_editor.file_path:  # Only save if it's a real file
+                    settings["open_tabs"].append(tab_data)
 
-        # ===== Save to JSON =====
         try:
+            os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
             with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(settings, f, indent=4)
             logging.info(f"Settings saved to {SETTINGS_FILE}")
@@ -328,40 +346,99 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
         """Load the application state from a JSON file."""
         if not os.path.exists(SETTINGS_FILE):
             logging.info("No settings file found. Starting with default settings.")
-            return  # No settings to load
+            return
 
         try:
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
                 settings = json.load(f)
 
-            # ===== Restore File Tree State =====
-            file_tree_container = self.containers_manager.containers.get(1)  # Assuming index=1 for FileTreeContainer
-            if file_tree_container and settings.get("current_root"):
-                file_tree_container.set_root_directory(settings["current_root"])
-                file_tree_container.restore_expanded_paths(settings.get("expanded_paths", []))
+            # Restore window geometry
+            if "window" in settings:
+                geometry = settings["window"].get("geometry", {})
+                if geometry:
+                    self.move(geometry.get("x", 100), geometry.get("y", 100))
+                    self.resize(geometry.get("width", 1000), geometry.get("height", 700))
+                    if geometry.get("maximized", False):
+                        self.showMaximized()
 
-                # Restore visibility
-                if settings.get("file_tree_container_open", False):
-                    self.toggle_container(1)
-                else:
-                    self.containers_manager.hide_current_container()
+            # Restore File Tree State
+            if "file_tree" in settings:
+                file_tree_settings = settings["file_tree"]
+                file_tree_container = self.containers_manager.containers.get(1)
+                if file_tree_container and file_tree_settings.get("current_root"):
+                    root_path = file_tree_settings["current_root"]
+                    if os.path.exists(root_path):
+                        file_tree_container.set_root_directory(root_path)
+                        file_tree_container.restore_expanded_paths(
+                            file_tree_settings.get("expanded_paths", [])
+                        )
+                        if file_tree_settings.get("visible", False):
+                            self.toggle_container(1)
 
-            # ===== Restore Open Tabs =====
-            open_tabs = settings.get("open_tabs", [])
-            for file_path in open_tabs:
-                if os.path.exists(file_path):
+            # Clear existing tabs before restoring
+            while self.tab_widget.count() > 0:
+                self.tab_widget.removeTab(0)
+
+            # Restore Open Tabs
+            restored_tabs = []  # Keep track of successfully restored tabs
+            for tab_data in settings.get("open_tabs", []):
+                file_path = tab_data.get("file_path")
+                if file_path and os.path.exists(file_path) and os.path.isfile(file_path):
                     try:
+                        # Read file content
                         with open(file_path, 'r', encoding='utf-8') as file:
                             content = file.read()
-                        self.add_new_tab(content, title=os.path.basename(file_path), file_path=file_path)
+
+                        # Create new tab without focusing it yet
+                        index = self.add_new_tab(
+                            content=content,
+                            title=os.path.basename(file_path),
+                            file_path=file_path
+                        )
+
+                        if index >= 0:
+                            widget = self.tab_widget.widget(index)
+                            text_editor = widget.findChild(TextEditor)
+                            if text_editor:
+                                # Restore cursor position
+                                cursor_pos = tab_data.get("cursor_position")
+                                if cursor_pos:
+                                    text_editor.cursor_line = min(cursor_pos[0], len(text_editor.lines) - 1)
+                                    text_editor.cursor_column = min(cursor_pos[1], 
+                                        len(text_editor.lines[text_editor.cursor_line]))
+
+                                # Restore scroll position
+                                scroll_pos = tab_data.get("scroll_position", {})
+                                if scroll_pos:
+                                    text_editor.verticalScrollBar().setValue(scroll_pos.get("vertical", 0))
+                                    text_editor.horizontalScrollBar().setValue(scroll_pos.get("horizontal", 0))
+
+                                restored_tabs.append(index)
+                                text_editor.set_modified(False)  # Ensure the restored file is marked as unmodified
+
                     except Exception as e:
                         logging.error(f"Error loading tab for '{file_path}': {e}")
                 else:
-                    logging.warning(f"File '{file_path}' does not exist and cannot be opened.")
+                    logging.warning(f"File '{file_path}' does not exist or is not accessible")
+
+            # Set focus to the first tab if any were restored
+            if restored_tabs:
+                self.tab_widget.setCurrentIndex(restored_tabs[0])
+                current_widget = self.tab_widget.currentWidget()
+                if current_widget:
+                    text_editor = current_widget.findChild(TextEditor)
+                    if text_editor:
+                        text_editor.setFocus()
+            else:
+                # If no tabs were restored, create a new empty tab
+                self.new_file()
 
             logging.info(f"Settings loaded from {SETTINGS_FILE}")
+            logging.info(f"Restored {len(restored_tabs)} tabs")
         except Exception as e:
             logging.error(f"Error loading settings: {e}")
+            # If there's an error loading settings, create a new empty tab
+            self.new_file()
 
     def show_about_dialog(self):
         """Display an About dialog."""
