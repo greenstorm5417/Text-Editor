@@ -101,9 +101,9 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         # Define icons and their corresponding container indices
         # Assign index=1 for File Tree, index=2 for Settings, index=3 for Plugins
         icons = [
-            ("resources/icons/logo.svg", 1),  
-            ("resources/icons/logo.svg", 2), 
-            ("resources/icons/logo.svg", 3)  
+            ("resources/icons/file_manager.svg", 1),  
+            ("resources/icons/settings.svg", 2), 
+            ("resources/icons/plugins.svg", 3)  
         ]
 
         for icon_path, index in icons:
@@ -157,7 +157,8 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         # Create a QScrollArea and set the TextEditor as its widget
         scroll_area = QScrollArea()
         scroll_area.setWidget(text_editor)
-        scroll_area.setWidgetResizable(True)  # Ensure the TextEditor resizes with the scroll area
+        # must remain true for text area to work
+        scroll_area.setWidgetResizable(True)
 
         # Add the scroll area to the tab's layout
         layout.addWidget(scroll_area)

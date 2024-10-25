@@ -54,7 +54,7 @@ class SelectionMixin:
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.MouseButton.LeftButton:
-            fm = QFontMetrics(self.font)
+            fm = QFontMetrics(self.font())
             x = event.position().x()
             y = event.position().y()
             line_height = fm.height()
@@ -91,7 +91,7 @@ class SelectionMixin:
 
     def mouseMoveEvent(self, event: QMouseEvent):
         if event.buttons() & Qt.MouseButton.LeftButton:
-            fm = QFontMetrics(self.font)
+            fm = QFontMetrics(self.font())
             x = event.position().x()
             y = event.position().y()
             line_height = fm.height()

@@ -2,37 +2,6 @@ from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtCore import Qt
 
 class CursorMixin:
-    def keyPressEvent(self, event: QKeyEvent):
-        modifiers = event.modifiers()
-        key = event.key()
-
-        # Handle cursor movement keys
-        if key == Qt.Key.Key_Left:
-            if modifiers & Qt.KeyboardModifier.ControlModifier:
-                self.move_cursor_to_previous_word()
-            else:
-                self.move_cursor_left()
-            self.clear_selection()
-            self.update()
-        elif key == Qt.Key.Key_Right:
-            if modifiers & Qt.KeyboardModifier.ControlModifier:
-                self.move_cursor_to_next_word()
-            else:
-                self.move_cursor_right()
-            self.clear_selection()
-            self.update()
-        elif key == Qt.Key.Key_Up:
-            self.move_cursor_up()
-            self.clear_selection()
-            self.update()
-        elif key == Qt.Key.Key_Down:
-            self.move_cursor_down()
-            self.clear_selection()
-            self.update()
-        else:
-            # Pass other keys to super class
-            super().keyPressEvent(event)
-
     def move_cursor_left(self):
         if self.cursor_column > 0:
             self.cursor_column -= 1

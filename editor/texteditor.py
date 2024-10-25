@@ -24,7 +24,8 @@ class TextEditor(QWidget, CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoM
         self.main_window = main_window
 
         # Use the font from Theme
-        self.font = Theme.get_default_font()
+        self.editor_font = Theme.get_default_font()
+        self.setFont(self.editor_font)
 
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)  # Enable keyboard focus
         self.setAttribute(Qt.WidgetAttribute.WA_InputMethodEnabled)
@@ -62,21 +63,45 @@ class TextEditor(QWidget, CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoM
 
     def keyPressEvent(self, event: QKeyEvent):
         modifiers = event.modifiers()
+        key = event.key()
 
         # Handle undo/redo shortcuts
-        if event.key() == Qt.Key.Key_Z and modifiers & Qt.KeyboardModifier.ControlModifier:
+        if key == Qt.Key.Key_Z and modifiers & Qt.KeyboardModifier.ControlModifier:
             if modifiers & Qt.KeyboardModifier.ShiftModifier:
                 self.redo()
             else:
                 self.undo()
             return
-        elif event.key() == Qt.Key.Key_Y and modifiers & Qt.KeyboardModifier.ControlModifier:
+        elif key == Qt.Key.Key_Y and modifiers & Qt.KeyboardModifier.ControlModifier:
             self.redo()
             return
 
-        # Delegate to CursorMixin for movement keys
-        if event.key() in [Qt.Key.Key_Left, Qt.Key.Key_Right, Qt.Key.Key_Up, Qt.Key.Key_Down]:
-            CursorMixin.keyPressEvent(self, event)
+        # Handle cursor movement keys
+        if key == Qt.Key.Key_Left:
+            if modifiers & Qt.KeyboardModifier.ControlModifier:
+                self.move_cursor_to_previous_word()
+            else:
+                self.move_cursor_left()
+            self.clear_selection()
+            self.update()
+            return
+        elif key == Qt.Key.Key_Right:
+            if modifiers & Qt.KeyboardModifier.ControlModifier:
+                self.move_cursor_to_next_word()
+            else:
+                self.move_cursor_right()
+            self.clear_selection()
+            self.update()
+            return
+        elif key == Qt.Key.Key_Up:
+            self.move_cursor_up()
+            self.clear_selection()
+            self.update()
+            return
+        elif key == Qt.Key.Key_Down:
+            self.move_cursor_down()
+            self.clear_selection()
+            self.update()
             return
 
         # Record the state before the action

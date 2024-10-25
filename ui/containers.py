@@ -1,3 +1,5 @@
+# ui/containers.py
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QToolButton, QHBoxLayout, QInputDialog, QMessageBox, QSizePolicy,
     QTreeWidget, QTreeWidgetItem, QMenu
@@ -31,9 +33,18 @@ class FileTreeWidget(QTreeWidget):
         self.setSelectionBehavior(QTreeWidget.SelectionBehavior.SelectItems)
         self.setFont(Theme.get_default_font())  # Set font directly
 
-        # Assign icons for directories and files
-        self.dir_icon = QIcon.fromTheme("folder") or QIcon("resources/icons/folder_icon.png")
-        self.file_icon = QIcon.fromTheme("text-x-generic") or QIcon("resources/icons/file_icon.png")
+        # Assign default icons using SVGs
+        self.dir_icon = QIcon("resources/icons/default_folder.svg")
+        self.default_file_icon = QIcon("resources/icons/default_file.svg")
+
+        # Path to custom file icons
+        self.file_icons_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'file_icons')
+
+        # Cache for file icons
+        self.file_icon_cache = {}
+
+        # Initialize show_hidden
+        self.show_hidden = False  # Initialize the show_hidden attribute
 
         # Connect signals
         self.itemExpanded.connect(self.on_item_expanded)
@@ -44,6 +55,36 @@ class FileTreeWidget(QTreeWidget):
         self.customContextMenuRequested.connect(self.open_context_menu)
         self.main_window = main_window
 
+    def get_file_icon(self, file_path):
+        """
+        Retrieves the QIcon for a given file based on its extension.
+        Caches the icons to optimize performance.
+        """
+        _, ext = os.path.splitext(file_path)
+        ext = ext.lower().lstrip('.')  # Normalize extension
+
+        if not ext:
+            # Files without an extension use the default file icon
+            return self.default_file_icon
+
+        if ext in self.file_icon_cache:
+            return self.file_icon_cache[ext]
+
+        # Construct the path to the specific file icon
+        icon_filename = f"{ext}.svg"
+        icon_full_path = os.path.join(self.file_icons_path, icon_filename)
+
+        if os.path.exists(icon_full_path):
+            icon = QIcon(icon_full_path)
+            if not icon.isNull():
+                self.file_icon_cache[ext] = icon
+                logging.debug(f"Loaded icon for .{ext} files from {icon_full_path}")
+                return icon
+
+        # Fallback to default file icon if specific icon not found or invalid
+        logging.warning(f"No icon found for .{ext} files. Using default file icon.")
+        self.file_icon_cache[ext] = self.default_file_icon
+        return self.default_file_icon
 
     def on_item_clicked(self, item: QTreeWidgetItem, column: int):
         """
@@ -75,23 +116,28 @@ class FileTreeWidget(QTreeWidget):
 
         if os.path.isfile(path):
             open_action = QAction("Open", self)
+            open_action.setIcon(QIcon("resources/icons/open_file.svg"))  # New SVG icon for Open
             open_action.triggered.connect(lambda: self.parent().open_file_in_tab(path))
             menu.addAction(open_action)
 
         rename_action = QAction("Rename", self)
+        rename_action.setIcon(QIcon("resources/icons/rename.svg"))  # New SVG icon for Rename
         rename_action.triggered.connect(lambda: self.rename_item(item, path))
         menu.addAction(rename_action)
 
         delete_action = QAction("Delete", self)
+        delete_action.setIcon(QIcon("resources/icons/delete.svg"))  # New SVG icon for Delete
         delete_action.triggered.connect(lambda: self.delete_item(item, path))
         menu.addAction(delete_action)
 
         copy_path_action = QAction("Copy Path", self)
+        copy_path_action.setIcon(QIcon("resources/icons/copy_path.svg"))  # New SVG icon for Copy Path
         copy_path_action.triggered.connect(lambda: self.copy_path(path))
         menu.addAction(copy_path_action)
 
         if os.path.isfile(path):
             open_external_action = QAction("Open in External Editor", self)
+            open_external_action.setIcon(QIcon("resources/icons/external_editor.svg"))  # New SVG icon
             open_external_action.triggered.connect(lambda: self.open_in_external_editor(path))
             menu.addAction(open_external_action)
 
@@ -172,7 +218,7 @@ class FileTreeWidget(QTreeWidget):
             # Populate with actual children
             parent_path = item.data(0, Qt.ItemDataRole.UserRole)
             self.parent().add_sub_items(item, parent_path)
-    
+
     def open_file_in_tab(self, file_path):
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
@@ -190,7 +236,39 @@ class FileTreeWidget(QTreeWidget):
             QMessageBox.critical(self, "Error", f"Could not open file:\n{e}")
             logging.error(f"Error opening file '{file_path}': {e}")
 
+    def add_sub_items(self, parent_item, parent_path):
+        """Recursively add subdirectories and files to the tree."""
+        try:
+            entries = os.listdir(parent_path)
+            # Sort entries: directories first, then files
+            entries.sort(key=lambda x: (not os.path.isdir(os.path.join(parent_path, x)), x.lower()))
+            for entry in entries:
+                if not self.show_hidden and entry.startswith('.'):
+                    continue  # Skip hidden files and folders
+                entry_path = os.path.join(parent_path, entry)
+                if os.path.isdir(entry_path):
+                    dir_item = QTreeWidgetItem(parent_item)
+                    dir_item.setText(0, entry)
+                    dir_item.setIcon(0, self.dir_icon)  # Set directory icon
+                    dir_item.setExpanded(False)  # Collapse by default
+                    dir_item.setData(0, Qt.ItemDataRole.UserRole, entry_path)  # Store the full path
 
+                    # Add a dummy child to make the item expandable
+                    dummy_child = QTreeWidgetItem(dir_item)
+                    dummy_child.setText(0, "Loading...")
+                    logging.debug(f"Added dummy child to directory: {entry_path}")
+                else:
+                    file_item = QTreeWidgetItem(parent_item)
+                    file_item.setText(0, entry)
+                    file_item.setIcon(0, self.get_file_icon(entry_path))  # Corrected line
+                    file_item.setData(0, Qt.ItemDataRole.UserRole, entry_path)  # Store the full path
+                    logging.debug(f"Added file: {entry_path}")
+        except PermissionError:
+            # Skip directories for which the user does not have permissions
+            logging.warning(f"Permission denied: {parent_path}")
+            pass
+        except Exception as e:
+            logging.error(f"Error accessing {parent_path}: {e}")
 
 
 class FileTreeContainer(QWidget):
@@ -207,35 +285,48 @@ class FileTreeContainer(QWidget):
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)  # Minimal padding for a slimmer look
+        layout.setContentsMargins(0, 0, 0, 0)  # Minimal padding for a slimmer look
         layout.setSpacing(5)
 
-        # Create a widget to hold the buttons
+        # Create a widget to hold the buttons and title
         self.button_widget = QWidget()
         self.button_layout = QHBoxLayout(self.button_widget)
+        self.button_layout.setContentsMargins(0, 0, 0, 0)
         self.button_layout.setSpacing(5)
 
         # Create File Button
         self.create_file_button = QToolButton()
-        self.create_file_button.setIcon(QIcon.fromTheme("document-new") or QIcon("resources/icons/document_new.png"))
+        self.create_file_button.setIcon(QIcon("resources/icons/new_file.svg"))  # Updated to SVG
         self.create_file_button.setToolTip("Create New File")
         self.create_file_button.clicked.connect(self.create_file)
         self.button_layout.addWidget(self.create_file_button)
 
         # Create Folder Button
         self.create_folder_button = QToolButton()
-        self.create_folder_button.setIcon(QIcon.fromTheme("folder-new") or QIcon("resources/icons/folder_new.png"))
+        self.create_folder_button.setIcon(QIcon("resources/icons/new_folder.svg"))  # Updated to SVG
         self.create_folder_button.setToolTip("Create New Folder")
         self.create_folder_button.clicked.connect(self.create_folder)
         self.button_layout.addWidget(self.create_folder_button)
 
         # Toggle Hidden Files Button
         self.toggle_hidden_button = QToolButton()
-        self.toggle_hidden_button.setIcon(QIcon.fromTheme("view-hidden") or QIcon("resources/icons/view_hidden.png"))
+        self.toggle_hidden_button.setIcon(QIcon("resources/icons/show_hidden.svg"))  # Updated to SVG
         self.toggle_hidden_button.setCheckable(True)
         self.toggle_hidden_button.setToolTip("Show Hidden Files")
         self.toggle_hidden_button.clicked.connect(self.toggle_hidden_files)
         self.button_layout.addWidget(self.toggle_hidden_button)
+
+        # Add a stretch to push the title_label to the right
+        self.button_layout.addStretch()
+
+        # Create Title Label
+        self.title_label = QLabel("File Tree")
+        self.title_label.setFont(Theme.get_default_font())
+        self.title_label.setStyleSheet(f"color: {Theme.TEXT_COLOR.name()};")
+        self.button_layout.addWidget(self.title_label)
+
+        # Align the title_label to the right
+        self.button_layout.setAlignment(self.title_label, Qt.AlignmentFlag.AlignRight)
 
         # Add button_widget to the main layout
         layout.addWidget(self.button_widget)
@@ -283,7 +374,7 @@ class FileTreeContainer(QWidget):
             self.button_widget.setVisible(True)
             self.toggle_hidden_button.setChecked(False)
             self.toggle_hidden_button.setToolTip("Show Hidden Files")
-            self.toggle_hidden_button.setIcon(QIcon.fromTheme("view-hidden") or QIcon("resources/icons/view_hidden.png"))
+            self.toggle_hidden_button.setIcon(QIcon("resources/icons/show_hidden.svg"))  # Ensure SVG is set correctly
         else:
             self.placeholder_label.setVisible(True)
             self.tree.setVisible(False)
@@ -384,7 +475,7 @@ class FileTreeContainer(QWidget):
                 else:
                     file_item = QTreeWidgetItem(parent_item)
                     file_item.setText(0, entry)
-                    file_item.setIcon(0, self.tree.file_icon)  # Set file icon
+                    file_item.setIcon(0, self.tree.get_file_icon(entry_path))  # Corrected line
                     file_item.setData(0, Qt.ItemDataRole.UserRole, entry_path)  # Store the full path
                     logging.debug(f"Added file: {entry_path}")
         except PermissionError:
@@ -461,10 +552,10 @@ class FileTreeContainer(QWidget):
         self.show_hidden = self.toggle_hidden_button.isChecked()
         if self.show_hidden:
             self.toggle_hidden_button.setToolTip("Hide Hidden Files")
-            self.toggle_hidden_button.setIcon(QIcon.fromTheme("view-visible") or QIcon("resources/icons/view_visible.png"))
+            self.toggle_hidden_button.setIcon(QIcon("resources/icons/hide_hidden.svg"))  # Updated to SVG
         else:
             self.toggle_hidden_button.setToolTip("Show Hidden Files")
-            self.toggle_hidden_button.setIcon(QIcon.fromTheme("view-hidden") or QIcon("resources/icons/view_hidden.png"))
+            self.toggle_hidden_button.setIcon(QIcon("resources/icons/show_hidden.svg"))  # Updated to SVG
         self.populate_tree()
 
     def load_expanded_items(self):
@@ -500,6 +591,7 @@ class FileTreeContainer(QWidget):
             QMessageBox.critical(self, "Error", f"Could not open file:\n{e}")
             logging.error(f"Error opening file '{file_path}': {e}")
 
+
 class SettingsContainer(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -509,6 +601,7 @@ class SettingsContainer(QWidget):
         layout.addWidget(label)
         # Add more complex widgets here
 
+
 class PluginsContainer(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -517,6 +610,7 @@ class PluginsContainer(QWidget):
         label = QLabel("Plugins Container")
         layout.addWidget(label)
         # Add more complex widgets here
+
 
 class ContainersManager(QWidget):
     def __init__(self, parent=None):
