@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QPushButton, QMenu
 from PyQt6.QtGui import QPainter, QPaintEvent
 from PyQt6.QtCore import Qt, QPoint
-from editor.theme import Theme
+from src.editor.themes.theme import Theme
 
 class CustomButton(QPushButton):
     def __init__(self, text='', parent=None,

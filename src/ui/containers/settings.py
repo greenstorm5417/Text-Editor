@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QPoint
 from PyQt6.QtGui import QIcon, QDrag, QPainter, QAction
-from editor.theme import Theme
+from src.editor.themes.theme import Theme
 import os
 import sys
 import shutil
@@ -14,14 +14,11 @@ from PyQt6.QtWidgets import QApplication
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
-
-
-class PluginsContainer(QWidget):
+class SettingsContainer(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        label = QLabel("Plugins Container")
+        label = QLabel("Settings Container")
         layout.addWidget(label)
         # Add more complex widgets here

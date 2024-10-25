@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QPoint
 from PyQt6.QtGui import QIcon, QDrag, QPainter, QAction
-from editor.theme import Theme
+from src.editor.themes.theme import Theme
 import os
 import sys
 import shutil

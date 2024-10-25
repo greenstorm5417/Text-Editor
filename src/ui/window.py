@@ -3,20 +3,20 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
-from ui.widgets.custom_title_bar import CustomTitleBar
-from editor.texteditor import TextEditor
-from editor.theme import Theme
-from editor.syntax_highlighter import PygmentsSyntaxHighlighter
+from src.ui.widgets.titlebar import CustomTitleBar
+from src.editor.base import TextEditor
+from src.editor.themes.theme import Theme
+from src.editor.highlighting.pygments import PygmentsSyntaxHighlighter
 
-from actions.fileoperations import FileOperationsMixin
-from actions.editactions import EditActionsMixin
+from src.editor.actions.handlers import FileOperationsMixin
+from src.editor.actions.handlers import EditActionsMixin
 
-from ui.widgets.custom_tab_widget import CustomTabWidget
-from ui.sidebar import Sidebar
-from ui.containers.containers_manager import ContainersManager
-from ui.containers.file_tree_container import FileTreeContainer
-from ui.containers.settings_container import SettingsContainer
-from ui.containers.plugins_container import PluginsContainer
+from src.ui.widgets.tabs import CustomTabWidget
+from src.ui.widgets.sidebar import Sidebar
+from src.ui.containers.base import ContainersManager
+from src.ui.containers.files import FileTreeContainer
+from src.ui.containers.settings import SettingsContainer
+from src.ui.containers.plugins import PluginsContainer
 
 import json
 import os

@@ -1,7 +1,7 @@
 from PyQt6.QtGui import QPainter, QFontMetrics
 from PyQt6.QtCore import QRect, QSize, Qt
 
-from editor.theme import Theme
+from src.editor.themes.theme import Theme
 
 import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')

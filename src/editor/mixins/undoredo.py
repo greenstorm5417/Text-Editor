@@ -1,4 +1,4 @@
-from actions.action import Action
+from src.editor.actions.action import Action
 
 class UndoRedoMixin:
     # Undo and redo stacks

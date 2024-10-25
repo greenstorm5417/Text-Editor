@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPushButton
 from PyQt6.QtCore import pyqtSignal, Qt, QSize
 from PyQt6.QtGui import QIcon
-from editor.theme import Theme
+from src.editor.themes.theme import Theme
 
 class Sidebar(QWidget):
     icon_clicked = pyqtSignal(int)  # Signal to indicate which icon was clicked

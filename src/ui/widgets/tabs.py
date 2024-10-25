@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (
     QWidget, QTabBar, QStackedWidget, QVBoxLayout, QSplitter
 )
 from PyQt6.QtCore import Qt
-from editor.theme import Theme
+from src.editor.themes.theme import Theme
 
 
 class CustomTabWidget(QWidget):

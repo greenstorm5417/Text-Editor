@@ -1,12 +1,7 @@
-from abc import ABC, abstractmethod
 from pygments import lex
 from pygments.lexers import get_lexer_by_name, guess_lexer
 from pygments.token import Token
-
-class SyntaxHighlighter(ABC):
-    @abstractmethod
-    def highlight(self, lines):
-        pass
+from src.editor.highlighting.base import SyntaxHighlighter
 
 class PygmentsSyntaxHighlighter(SyntaxHighlighter):
     def __init__(self, language_name=None):
