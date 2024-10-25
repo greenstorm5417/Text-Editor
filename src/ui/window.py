@@ -1,26 +1,33 @@
+# src/ui/window.py
+
 from PyQt6.QtWidgets import (
     QMainWindow, QMessageBox, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QSizePolicy, QFrame, QScrollArea
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
-from src.ui.widgets.titlebar import CustomTitleBar
-from src.editor.base import TextEditor
-from src.editor.themes.theme import Theme
-from src.editor.highlighting.pygments import PygmentsSyntaxHighlighter
 
-from src.editor.actions.handlers import FileOperationsMixin
-from src.editor.actions.handlers import EditActionsMixin
+# Use relative imports instead of importing from src.ui
+from .widgets.titlebar import CustomTitleBar
+from .widgets.tabs import CustomTabWidget
+from .widgets.sidebar import Sidebar
+from .containers.base import ContainersManager
+from .containers.files import FileTreeContainer
+from .containers.settings import SettingsContainer
+from .containers.plugins import PluginsContainer
 
-from src.ui.widgets.tabs import CustomTabWidget
-from src.ui.widgets.sidebar import Sidebar
-from src.ui.containers.base import ContainersManager
-from src.ui.containers.files import FileTreeContainer
-from src.ui.containers.settings import SettingsContainer
-from src.ui.containers.plugins import PluginsContainer
+from src.editor import (
+    TextEditor,
+    Theme,
+    PygmentsSyntaxHighlighter,
+    FileOperationsMixin,
+    EditActionsMixin,
+)
 
 import json
 import os
 import logging
+
+
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 

@@ -2,13 +2,16 @@ from PyQt6.QtWidgets import QWidget, QAbstractScrollArea
 from PyQt6.QtGui import QKeyEvent, QFontMetrics, QPainter, QPalette
 from PyQt6.QtCore import Qt, QTimer, QEvent, pyqtSignal, QRect, QSize
 
-from src.editor.themes.theme import Theme
-from src.editor.mixins.cursor import CursorMixin
-from src.editor.mixins.selection import SelectionMixin
-from src.editor.mixins.clipboard import ClipboardMixin
-from src.editor.mixins.undoredo import UndoRedoMixin
-from src.editor.mixins.painting import PaintingMixin
-from src.editor.highlighting.pygments import PygmentsSyntaxHighlighter
+from .themes.theme import Theme
+from .mixins.cursor import CursorMixin
+from .mixins.selection import SelectionMixin
+from .mixins.clipboard import ClipboardMixin
+from .mixins.undoredo import UndoRedoMixin
+from .mixins.painting import PaintingMixin
+
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
