@@ -1,4 +1,3 @@
-# In editor/painting_mixin.py
 from PyQt6.QtGui import QPainter, QFontMetrics
 from PyQt6.QtCore import QRect, QSize, Qt
 

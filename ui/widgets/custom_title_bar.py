@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QMenu, QSizePolicy
 from PyQt6.QtCore import Qt, QPoint
 from PyQt6.QtGui import QPixmap, QAction, QPalette
-from ui.custom_button import CustomButton
+from ui.widgets.custom_button import CustomButton
 from editor.theme import Theme
 
 class CustomTitleBar(QWidget):

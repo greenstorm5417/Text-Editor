@@ -4,11 +4,11 @@ from PyQt6.QtCore import Qt, QTimer, QEvent, pyqtSignal, QRect
 from PyQt5.Qsci import QsciScintilla, QsciLexerPython, QsciLexerJavaScript
 
 from editor.theme import Theme
-from editor.cursor_mixin import CursorMixin
-from editor.selection_mixin import SelectionMixin
-from editor.clipboard_mixin import ClipboardMixin
-from editor.undoredo_mixin import UndoRedoMixin
-from editor.painting_mixin import PaintingMixin
+from editor.mixins.cursor_mixin import CursorMixin
+from editor.mixins.selection_mixin import SelectionMixin
+from editor.mixins.clipboard_mixin import ClipboardMixin
+from editor.mixins.undoredo_mixin import UndoRedoMixin
+from editor.mixins.painting_mixin import PaintingMixin
 from editor.syntax_highlighter import PygmentsSyntaxHighlighter
 
 import logging

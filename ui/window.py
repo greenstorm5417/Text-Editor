@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QMessageBox, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QSizePolicy, QFrame, QScrollArea
 )
 from PyQt6.QtCore import Qt
-from ui.custom_title_bar import CustomTitleBar
+from ui.widgets.custom_title_bar import CustomTitleBar
 from editor.texteditor import TextEditor
 from editor.theme import Theme
 from editor.syntax_highlighter import PygmentsSyntaxHighlighter
@@ -10,9 +10,12 @@ from editor.syntax_highlighter import PygmentsSyntaxHighlighter
 from actions.fileoperations import FileOperationsMixin
 from actions.editactions import EditActionsMixin
 
-from ui.custom_tab_widget import CustomTabWidget
+from ui.widgets.custom_tab_widget import CustomTabWidget
 from ui.sidebar import Sidebar
-from ui.containers import ContainersManager, SettingsContainer, PluginsContainer, FileTreeContainer  
+from ui.containers.containers_manager import ContainersManager
+from ui.containers.file_tree_container import FileTreeContainer
+from ui.containers.settings_container import SettingsContainer
+from ui.containers.plugins_container import PluginsContainer
 
 import json
 import os

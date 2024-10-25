@@ -1,5 +1,3 @@
-# editor/syntax_highlighter.py
-
 from abc import ABC, abstractmethod
 from pygments import lex
 from pygments.lexers import get_lexer_by_name, guess_lexer
