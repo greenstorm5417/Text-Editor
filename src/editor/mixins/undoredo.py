@@ -14,9 +14,9 @@ class UndoRedoMixin:
         self.undo_stack.append(action)
         self.redo_stack.clear()
         if not self._is_modified:
-            self.set_modified(True)  # Use the setter method
+            self.set_modified(True)
         if self.main_window:
-            self.modifiedChanged.emit(self)  # Emit signal with self
+            self.modifiedChanged.emit(self)
 
     def undo(self):
         if not self.undo_stack:
