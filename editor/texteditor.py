@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QWidget, QApplication, QSizePolicy, QAbstractScrollArea
 from PyQt6.QtGui import QKeyEvent, QFontMetrics, QPainter
-from PyQt6.QtCore import Qt, QTimer, QEvent, pyqtSignal, QRect
+from PyQt6.QtCore import Qt, QTimer, QEvent, pyqtSignal, QRect, QSize
 from PyQt5.Qsci import QsciScintilla, QsciLexerPython, QsciLexerJavaScript
 
 from editor.theme import Theme
@@ -13,6 +13,18 @@ from editor.syntax_highlighter import PygmentsSyntaxHighlighter
 
 import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+class LineNumberArea(QWidget):
+    def __init__(self, editor):
+        super().__init__(editor)
+        self.editor = editor
+
+    def sizeHint(self):
+        return QSize(self.editor.line_number_area_width(), 0)
+
+    def paintEvent(self, event):
+        self.editor.line_number_area_paint_event(event)
 
 
 class TextEditorViewport(QWidget):
@@ -130,6 +142,17 @@ class TextEditor(CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, Pai
         self.cursor_line = 0
         self.cursor_column = 0
 
+                # Initialize LineNumberArea
+        # Update these specific lines in the __init__ method
+        self.line_number_area = LineNumberArea(self)
+        self.update_line_number_area_width(0)
+
+        # Adjust viewport margins
+        self.setViewportMargins(self.line_number_area_width(), 0, 0, 0)
+
+        self.verticalScrollBar().valueChanged.connect(self.line_number_area.update)
+
+
         self.file_path = file_path
         self._is_modified = False  # Private flag to track unsaved changes
 
@@ -219,20 +242,90 @@ class TextEditor(CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, Pai
                 return True
         return super().event(event)
     
+    def line_number_area_width(self):
+        """Calculate the width needed for the line numbers."""
+        max_width = 0
+        digits = len(str(max(1, len(self.lines))))
+        fm = QFontMetrics(self.font())
+        
+        # Calculate width based on widest possible number plus padding
+        max_width = fm.horizontalAdvance('9' * digits) + Theme.scaled_size(20)
+        
+        return max_width
+
+    def update_line_number_area_width(self, _):
+        """Update the viewport margins based on the line number area width."""
+        self.setViewportMargins(self.line_number_area_width(), 0, 0, 0)
+
+    def resizeEvent(self, event):
+        """Handle the resize event to adjust the line number area."""
+        super().resizeEvent(event)
+        cr = self.contentsRect()
+        self.line_number_area.setGeometry(QRect(cr.left(), cr.top(), self.line_number_area_width(), cr.height()))
+
+    def line_number_area_paint_event(self, event):
+        """Paint the line numbers."""
+        painter = QPainter(self.line_number_area)
+        painter.fillRect(event.rect(), Theme.BACKGROUND_COLOR)
+
+        # Get metrics for text positioning
+        fm = QFontMetrics(self.font())
+        line_height = fm.height()
+        block_top = self.verticalScrollBar().value()
+        
+        # Get visible region
+        viewport_offset = block_top
+        paint_rect = event.rect()
+        
+        # Calculate first and last visible lines
+        first_visible_line = max(0, int(viewport_offset / line_height))
+        last_visible_line = min(
+            len(self.lines) - 1,
+            int((viewport_offset + self.viewport().height()) / line_height) + 1
+        )
+
+        # Set up painter for numbers
+        painter.setPen(Theme.LINE_NUMBER_COLOR)
+        painter.setFont(self.font())
+
+        # Width of the line number area
+        number_width = self.line_number_area.width()
+
+        for line_number in range(first_visible_line, last_visible_line + 1):
+            # Calculate the y position for this line number
+            y_pos = (line_number * line_height) - viewport_offset
+            
+            # Only draw if the line number is visible
+            if y_pos >= paint_rect.top() - line_height and y_pos <= paint_rect.bottom():
+                number = str(line_number + 1)
+                painter.drawText(
+                    0,  # x position
+                    y_pos,  # y position
+                    number_width,  # width
+                    line_height,  # height
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                    number
+                )
+
+
+
     def update_scrollbars(self):
         """Update the scrollbars based on the content size."""
         fm = QFontMetrics(self.font())
         line_height = fm.height()
-        content_width = max(fm.horizontalAdvance(line) for line in self.lines) + 20  # Added padding
-        content_height = line_height * len(self.lines) + 20  # Added padding
+        content_width = max(fm.horizontalAdvance(line) for line in self.lines) + Theme.scaled_size(20)
+        content_height = line_height * len(self.lines) + Theme.scaled_size(20)
 
         self.verticalScrollBar().setRange(0, max(0, content_height - self.viewport().height()))
-        self.verticalScrollBar().setPageStep(int(self.viewport().height() * 0.1))  # Adjust vertical scroll step size
-        self.verticalScrollBar().setSingleStep(int(line_height * 1))  # Scroll multiple lines at once
+        self.verticalScrollBar().setPageStep(int(self.viewport().height() * 0.1))
+        self.verticalScrollBar().setSingleStep(int(line_height * 1))
 
         self.horizontalScrollBar().setRange(0, max(0, content_width - self.viewport().width()))
-        self.horizontalScrollBar().setPageStep(int(self.viewport().width() * 0.2))  # Adjust horizontal scroll step size
-        self.horizontalScrollBar().setSingleStep(int(fm.horizontalAdvance(' ') * 1))  # Scroll multiple characters at once
+        self.horizontalScrollBar().setPageStep(int(self.viewport().width() * 0.2))
+        self.horizontalScrollBar().setSingleStep(int(fm.horizontalAdvance(' ') * 1))
+
+        # Update the line number area when scrollbars change
+        self.line_number_area.update()
 
 
 
@@ -307,6 +400,8 @@ class TextEditor(CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, Pai
             self.set_modified(True)
             self.updateGeometry()  # Notify layout system
             self.update_highlighting() 
+            self.update_line_number_area_width(0)
+            self.line_number_area.update()
             self.update()
         elif event.key() == Qt.Key.Key_Delete:
             if self.has_selection():

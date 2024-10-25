@@ -47,7 +47,9 @@ class Theme:
     TAB_ACTIVE_BACKGROUND_COLOR = QColor("#555555")
     TAB_HOVER_BACKGROUND_COLOR = QColor("#666666")
     TAB_TEXT_COLOR = QColor("white")
-    TAB_BORDER_COLOR = QColor("#888888") 
+    TAB_BORDER_COLOR = QColor("#888888")
+
+    LINE_NUMBER_COLOR = QColor('gray')
 
     # Sizes
     BUTTON_WIDTH = 80

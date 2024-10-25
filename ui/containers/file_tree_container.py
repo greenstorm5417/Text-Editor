@@ -36,7 +36,7 @@ class FileTreeWidget(QTreeWidget):
         self.default_file_icon = QIcon("resources/icons/default_file.svg")
 
         # Path to custom file icons
-        self.file_icons_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'file_icons')
+        self.file_icons_path = os.path.join(os.path.dirname(__file__), '..', '..', 'resources', 'file_icons')
 
         # Cache for file icons
         self.file_icon_cache = {}
