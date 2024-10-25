@@ -13,6 +13,16 @@ from ui.custom_tab_widget import CustomTabWidget
 from ui.sidebar import Sidebar
 from ui.containers import ContainersManager, SettingsContainer, PluginsContainer, FileTreeContainer  # Import FileTreeContainer
 
+import json
+import os
+import logging
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Inside the MainWindow class, define the settings file path
+SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".my_text_editor_settings.json")
+
+
 class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
     def __init__(self):
         super().__init__()
@@ -33,6 +43,8 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         main_layout = QVBoxLayout(container)
         main_layout.setContentsMargins(0, 0, 0, 0)  # Ensure no extra margins
         main_layout.setSpacing(0)
+
+        
 
         # Initialize custom title bar
         self.title_bar = CustomTitleBar(self)
@@ -88,14 +100,14 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         # Set container as central widget
         self.setCentralWidget(container)
 
-        # Add an initial tab
-        self.add_new_tab()
-
         # Add icons to the sidebar and corresponding containers
         self.add_sidebar_icons()
 
         # Connect sidebar signals
         self.sidebar.icon_clicked.connect(self.toggle_container)
+
+        self.load_settings()
+
 
     def add_sidebar_icons(self):
         # Define icons and their corresponding container indices
@@ -154,14 +166,10 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         text_editor = TextEditor(content, file_path, self)  # Pass self to TextEditor
         text_editor.modifiedChanged.connect(self.update_tab_title)  # Connect the signal
 
-        # Create a QScrollArea and set the TextEditor as its widget
-        scroll_area = QScrollArea()
-        scroll_area.setWidget(text_editor)
-        # must remain true for text area to work
-        scroll_area.setWidgetResizable(True)
 
-        # Add the scroll area to the tab's layout
-        layout.addWidget(scroll_area)
+        # Directly add the TextEditor to the layout
+        layout.addWidget(text_editor)
+
 
         # Add the new tab to the tab widget
         index = self.tab_widget.addTab(new_tab, title)
@@ -238,6 +246,89 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
                     new_title = title
                     self.tab_widget.setTabText(index, new_title)
 
+    def save_settings(self):
+        """Save the current state of the application to a JSON file."""
+        settings = {}
+
+        # ===== Save File Tree State =====
+        file_tree_container = self.containers_manager.containers.get(1)  # Assuming index=1 for FileTreeContainer
+        if file_tree_container and file_tree_container.current_root:
+            settings["current_root"] = file_tree_container.current_root
+            settings["expanded_paths"] = file_tree_container.get_expanded_paths()
+            settings["file_tree_container_open"] = (self.containers_manager.current_container == 1)
+        else:
+            settings["current_root"] = None
+            settings["expanded_paths"] = []
+            settings["file_tree_container_open"] = False
+
+        # ===== Save Open Tabs =====
+        open_tabs = []
+        for index in range(self.tab_widget.count()):
+            widget = self.tab_widget.widget(index)
+            text_editor = widget.findChild(TextEditor)
+            if text_editor and text_editor.file_path:
+                open_tabs.append(text_editor.file_path)
+            else:
+                # For unsaved files, you might want to handle them differently
+                pass  # Currently skipping unsaved files
+        settings["open_tabs"] = open_tabs
+
+        # ===== Save to JSON =====
+        try:
+            with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, indent=4)
+            logging.info(f"Settings saved to {SETTINGS_FILE}")
+        except Exception as e:
+            logging.error(f"Error saving settings: {e}")
+
+    def load_settings(self):
+        """Load the application state from a JSON file."""
+        if not os.path.exists(SETTINGS_FILE):
+            logging.info("No settings file found. Starting with default settings.")
+            return  # No settings to load
+
+        try:
+            with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+                settings = json.load(f)
+
+            # ===== Restore File Tree State =====
+            file_tree_container = self.containers_manager.containers.get(1)  # Assuming index=1 for FileTreeContainer
+            if file_tree_container and settings.get("current_root"):
+                file_tree_container.set_root_directory(settings["current_root"])
+                file_tree_container.restore_expanded_paths(settings.get("expanded_paths", []))
+
+                # Restore visibility
+                if settings.get("file_tree_container_open", False):
+                    self.toggle_container(1)
+                else:
+                    self.containers_manager.hide_current_container()
+
+            # ===== Restore Open Tabs =====
+            open_tabs = settings.get("open_tabs", [])
+            for file_path in open_tabs:
+                if os.path.exists(file_path):
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as file:
+                            content = file.read()
+                        self.add_new_tab(content, title=os.path.basename(file_path), file_path=file_path)
+                    except Exception as e:
+                        logging.error(f"Error loading tab for '{file_path}': {e}")
+                else:
+                    logging.warning(f"File '{file_path}' does not exist and cannot be opened.")
+
+            logging.info(f"Settings loaded from {SETTINGS_FILE}")
+        except Exception as e:
+            logging.error(f"Error loading settings: {e}")
+
     def show_about_dialog(self):
         """Display an About dialog."""
         QMessageBox.information(self, "About", "My Custom Text Editor\nBuilt with PyQt6")
+
+    def closeEvent(self, event):
+        """Handle the window close event to save settings."""
+        # First, handle unsaved changes as per existing logic in FileOperationsMixin.closeEvent
+        super().closeEvent(event)  # Calls FileOperationsMixin.closeEvent
+
+        if event.isAccepted():
+            # Now save the settings
+            self.save_settings()

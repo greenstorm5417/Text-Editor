@@ -55,8 +55,8 @@ class SelectionMixin:
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.MouseButton.LeftButton:
             fm = QFontMetrics(self.font())
-            x = event.position().x()
-            y = event.position().y()
+            x = event.position().x() + self.horizontalScrollBar().value()
+            y = event.position().y() + self.verticalScrollBar().value()
             line_height = fm.height()
 
             # Calculate line index
@@ -88,6 +88,7 @@ class SelectionMixin:
                 self.clear_selection()
 
             self.update()
+
 
     def mouseMoveEvent(self, event: QMouseEvent):
         if event.buttons() & Qt.MouseButton.LeftButton:

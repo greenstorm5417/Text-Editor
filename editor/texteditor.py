@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QWidget, QApplication, QSizePolicy
-from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtWidgets import QWidget, QApplication, QSizePolicy, QAbstractScrollArea
+from PyQt6.QtGui import QKeyEvent, QFontMetrics
 from PyQt6.QtCore import Qt, QTimer, QEvent, pyqtSignal
 
 from editor.theme import Theme
@@ -13,7 +13,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-class TextEditor(QWidget, CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, PaintingMixin):
+class TextEditor(QAbstractScrollArea, CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, PaintingMixin):
     # Signal to notify MainWindow about modification state changes
     modifiedChanged = pyqtSignal(object)  # Emits the TextEditor instance
 
@@ -48,7 +48,14 @@ class TextEditor(QWidget, CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoM
         self.selection_start = None  # tuple (line, column)
         self.selection_end = None    # tuple (line, column)
 
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        # Remove size policy as QAbstractScrollArea handles it
+        # self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        # Initialize scrollbars
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.update_scrollbars()
+
 
     def blink_cursor(self):
         self.cursor_visible = not self.cursor_visible
@@ -60,6 +67,23 @@ class TextEditor(QWidget, CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoM
                 self.keyPressEvent(event)
                 return True
         return super().event(event)
+    
+    def update_scrollbars(self):
+        """Update the scrollbars based on the content size."""
+        fm = QFontMetrics(self.font())
+        line_height = fm.height()
+        content_width = max(fm.horizontalAdvance(line) for line in self.lines) + 20  # Added padding
+        content_height = line_height * len(self.lines) + 20  # Added padding
+
+        self.verticalScrollBar().setRange(0, max(0, content_height - self.viewport().height()))
+        self.verticalScrollBar().setPageStep(int(self.viewport().height() * 0.1))  # Adjust vertical scroll step size
+        self.verticalScrollBar().setSingleStep(int(line_height * 1))  # Scroll multiple lines at once
+
+        self.horizontalScrollBar().setRange(0, max(0, content_width - self.viewport().width()))
+        self.horizontalScrollBar().setPageStep(int(self.viewport().width() * 0.2))  # Adjust horizontal scroll step size
+        self.horizontalScrollBar().setSingleStep(int(fm.horizontalAdvance(' ') * 1))  # Scroll multiple characters at once
+
+
 
     def keyPressEvent(self, event: QKeyEvent):
         modifiers = event.modifiers()
