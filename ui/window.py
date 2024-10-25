@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".my_text_editor_settings.json")
 
 
-class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
+class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
     def __init__(self):
         super().__init__()
 

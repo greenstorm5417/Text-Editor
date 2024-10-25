@@ -349,6 +349,7 @@ class TextEditor(CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, Pai
             self.clear_selection()
             self.set_modified(True)
             self.updateGeometry()  # Notify layout system
+            self.update_scrollbars()
             self.update_highlighting() 
             self.update()
         elif event.key() == Qt.Key.Key_Tab:

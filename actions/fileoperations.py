@@ -1,5 +1,7 @@
 from PyQt6.QtWidgets import QMessageBox, QFileDialog
 from editor.texteditor import TextEditor
+from editor.syntax_highlighter import PygmentsSyntaxHighlighter
+import os 
 
 class FileOperationsMixin:
     def open_file(self):
@@ -44,12 +46,15 @@ class FileOperationsMixin:
                     except Exception as e:
                         QMessageBox.critical(self, "Error", f"Could not save file:\n{e}")
                 else:
-                    self.save_file_as()
+                    self.save_file_as()  # This will handle updating the highlighter
+
 
     def save_file_as(self):
         """Save the current file with a new name."""
-        file_path, _ = QFileDialog.getSaveFileName(self, "Save File As", "Untitled.txt",
-                                                   "Text Files (*.txt);;All Files (*)")
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save File As", "Untitled.txt",
+            "Text Files (*.txt);;All Files (*)"
+        )
         if file_path:
             current_widget = self.tab_widget.currentWidget()
             if current_widget:
@@ -61,9 +66,22 @@ class FileOperationsMixin:
                         text_editor.file_path = file_path
                         text_editor.set_modified(False)
                         index = self.tab_widget.indexOf(current_widget)
-                        self.tab_widget.setTabText(index, file_path.split('/')[-1])
+                        self.tab_widget.setTabText(index, os.path.basename(file_path))
+
+                        # **Update the syntax highlighter based on new file extension**
+                        _, ext = os.path.splitext(file_path)
+                        ext = ext.lower().lstrip('.')
+                        language = self.get_language_from_extension(ext)
+                        if language:
+                            highlighter = PygmentsSyntaxHighlighter(language)
+                            text_editor.set_highlighter(highlighter)
+                        else:
+                            text_editor.set_highlighter(None)
+                        text_editor.update_highlighting()
+
                     except Exception as e:
                         QMessageBox.critical(self, "Error", f"Could not save file:\n{e}")
+
 
     def closeEvent(self, event):
         """Check for unsaved changes before closing."""
