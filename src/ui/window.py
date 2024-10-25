@@ -1,12 +1,12 @@
 # src/ui/window.py
 
 from PyQt6.QtWidgets import (
-    QMainWindow, QMessageBox, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QSizePolicy, QFrame, QScrollArea
+    QMainWindow, QMessageBox, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QSizePolicy, QFrame
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 
-# Use relative imports instead of importing from src.ui
+# Relative imports for custom widgets and containers
 from .widgets.titlebar import CustomTitleBar
 from .widgets.tabs import CustomTabWidget
 from .widgets.sidebar import Sidebar
@@ -27,15 +27,12 @@ import json
 import os
 import logging
 
-
-
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# Inside the MainWindow class, define the settings file path
-SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".my_text_editor_settings.json")
 
 
 class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
+    SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".my_text_editor_settings.json")
+
     def __init__(self):
         super().__init__()
 
@@ -43,12 +40,14 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
 
+        # Set application icon
         app_icon = QIcon("resources/icons/logo.svg")
         self.setWindowIcon(app_icon)
 
         if os.name == 'nt':  # Windows
+            # Set the app user model ID to ensure the taskbar icon is displayed correctly
             import ctypes
-            myappid = 'mycompany.myproduct.subproduct.version'  # arbitrary string
+            myappid = 'mycompany.myproduct.subproduct.version'  # Arbitrary string
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
         self.setWindowTitle('TextForge')
@@ -61,10 +60,8 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
         # Create main container widget and layout
         container = QWidget()
         main_layout = QVBoxLayout(container)
-        main_layout.setContentsMargins(0, 0, 0, 0)  # Ensure no extra margins
+        main_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
         main_layout.setSpacing(0)
-
-        
 
         # Initialize custom title bar
         self.title_bar = CustomTitleBar(self)
@@ -73,14 +70,14 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
         # Add a horizontal line separator below the title bar
         h_line = QFrame()
         h_line.setFrameShape(QFrame.Shape.HLine)
-        h_line.setFixedHeight(Theme.LINE_WIDTH)  # Use the theme width
+        h_line.setFixedHeight(Theme.LINE_WIDTH)
         h_line.setStyleSheet(f"background-color: {Theme.color_to_stylesheet(Theme.LINE_COLOR)};")
         main_layout.addWidget(h_line)
 
         # Create content area widget and layout
         content_widget = QWidget()
         content_layout = QHBoxLayout(content_widget)
-        content_layout.setContentsMargins(0, 0, 0, 0)  # Ensure no extra margins
+        content_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
         content_layout.setSpacing(0)
 
         # Initialize Sidebar
@@ -91,7 +88,7 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
         # Add a vertical line separator between the sidebar and containers
         v_line1 = QFrame()
         v_line1.setFrameShape(QFrame.Shape.VLine)
-        v_line1.setFixedWidth(Theme.LINE_WIDTH)  # Use the theme width
+        v_line1.setFixedWidth(Theme.LINE_WIDTH)
         v_line1.setStyleSheet(f"background-color: {Theme.color_to_stylesheet(Theme.LINE_COLOR)};")
         content_layout.addWidget(v_line1)
 
@@ -104,7 +101,7 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
         # Add a vertical line separator between containers and tab widget
         self.v_line2 = QFrame()
         self.v_line2.setFrameShape(QFrame.Shape.VLine)
-        self.v_line2.setFixedWidth(Theme.LINE_WIDTH)  # Use the theme width
+        self.v_line2.setFixedWidth(Theme.LINE_WIDTH)
         self.v_line2.setStyleSheet(f"background-color: {Theme.color_to_stylesheet(Theme.LINE_COLOR)};")
         self.v_line2.setVisible(False)  # Initially hidden
         content_layout.addWidget(self.v_line2)
@@ -126,16 +123,16 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
         # Connect sidebar signals
         self.sidebar.icon_clicked.connect(self.toggle_container)
 
+        # Load application settings
         self.load_settings()
 
-
     def add_sidebar_icons(self):
+        """Add icons to the sidebar and corresponding containers."""
         # Define icons and their corresponding container indices
-        # Assign index=1 for File Tree, index=2 for Settings, index=3 for Plugins
         icons = [
-            ("resources/icons/file_manager.svg", 1),  
-            ("resources/icons/settings.svg", 2), 
-            ("resources/icons/plugins.svg", 3)  
+            ("resources/icons/file_manager.svg", 1),  # File Tree
+            ("resources/icons/settings.svg", 2),      # Settings
+            ("resources/icons/plugins.svg", 3)        # Plugins
         ]
 
         for icon_path, index in icons:
@@ -153,9 +150,7 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
             self.containers_manager.add_container(index, f"Container {index}", content_widget=container)
 
     def toggle_container(self, index):
-        """
-        Toggles the visibility of a container based on the clicked sidebar icon.
-        """
+        """Toggle the visibility of a container based on the clicked sidebar icon."""
         self.containers_manager.show_container(index)
         if self.containers_manager.current_container is not None:
             self.v_line2.setVisible(True)
@@ -165,8 +160,7 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
             self.containers_manager.setVisible(False)
 
     def add_new_tab(self, content='', title='Untitled', file_path=None):
-        """Add a new tab with a TextEditor widget inside a QScrollArea."""
-        
+        """Add a new tab with a TextEditor widget."""
         # Check if the file is already open
         if file_path:
             for index in range(self.tab_widget.count()):
@@ -181,13 +175,11 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
         new_tab = QWidget()
         layout = QVBoxLayout(new_tab)
         layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
-        layout.setSpacing(0)  # Remove spacing
+        layout.setSpacing(0)
 
         # Initialize the TextEditor
         text_editor = TextEditor(content, file_path, self)  # Pass self to TextEditor
-        text_editor.modifiedChanged.connect(self.update_tab_title)  # Connect the signal
-
-
+        text_editor.modifiedChanged.connect(self.update_tab_title)
 
         # Set the syntax highlighter based on file extension
         if file_path:
@@ -197,11 +189,10 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
             highlighter = PygmentsSyntaxHighlighter(language)
             text_editor.set_highlighter(highlighter)
         else:
-            # For new files, you might prompt the user to select a language
-            # For now, we'll default to plain text (no highlighting)
+            # Default to plain text (no highlighting)
             text_editor.set_highlighter(None)
 
-        # Directly add the TextEditor to the layout
+        # Add the TextEditor to the layout
         layout.addWidget(text_editor)
 
         # Add the new tab to the tab widget
@@ -211,9 +202,7 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
         return index
 
     def get_language_from_extension(self, ext):
-        """
-        Map file extensions to Pygments lexer names.
-        """
+        """Map file extensions to Pygments lexer names."""
         extension_mapping = {
             'py': 'python',
             'js': 'javascript',
@@ -256,7 +245,7 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
                     try:
                         with open(text_editor.file_path, 'w', encoding='utf-8') as file:
                             file.write(text_editor.toPlainText())
-                        text_editor.set_modified(False)  # Use setter method
+                        text_editor.set_modified(False)
                         self.update_tab_title(text_editor)
                     except Exception as e:
                         QMessageBox.critical(self, "Error", f"Could not save file:\n{e}")
@@ -270,8 +259,8 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
                             with open(file_path, 'w', encoding='utf-8') as file:
                                 file.write(text_editor.toPlainText())
                             text_editor.file_path = file_path
-                            text_editor.set_modified(False)  # Use setter method
-                            self.tab_widget.setTabText(index, file_path.split('/')[-1])
+                            text_editor.set_modified(False)
+                            self.tab_widget.setTabText(index, os.path.basename(file_path))
                         except Exception as e:
                             QMessageBox.critical(self, "Error", f"Could not save file:\n{e}")
                     else:
@@ -292,18 +281,19 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
     def update_tab_title(self, text_editor):
         """Update the tab title based on the TextEditor instance."""
         index = self.tab_widget.indexOf(text_editor.parent())
-        if index != -1:
-            # Remove trailing asterisks and spaces
-            title = self.tab_widget.tabText(index).rstrip('* ').rstrip()
+        if index == -1:
+            return
 
-            if text_editor.is_modified:
-                if not self.tab_widget.tabText(index).endswith('*'):
-                    new_title = f"{title}*"
-                    self.tab_widget.setTabText(index, new_title)
-            else:
-                if self.tab_widget.tabText(index).endswith('*'):
-                    new_title = title
-                    self.tab_widget.setTabText(index, new_title)
+        current_title = self.tab_widget.tabText(index)
+        title = current_title.rstrip('*').strip()
+
+        if text_editor.is_modified:
+            new_title = f"{title}*"
+        else:
+            new_title = title
+
+        if current_title != new_title:
+            self.tab_widget.setTabText(index, new_title)
 
     def save_settings(self):
         """Save the current state of the application to a JSON file."""
@@ -351,21 +341,21 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
                     settings["open_tabs"].append(tab_data)
 
         try:
-            os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
-            with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+            os.makedirs(os.path.dirname(self.SETTINGS_FILE), exist_ok=True)
+            with open(self.SETTINGS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(settings, f, indent=4)
-            logging.info(f"Settings saved to {SETTINGS_FILE}")
+            logging.info(f"Settings saved to {self.SETTINGS_FILE}")
         except Exception as e:
             logging.error(f"Error saving settings: {e}")
 
     def load_settings(self):
         """Load the application state from a JSON file."""
-        if not os.path.exists(SETTINGS_FILE):
+        if not os.path.exists(self.SETTINGS_FILE):
             logging.info("No settings file found. Starting with default settings.")
             return
 
         try:
-            with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+            with open(self.SETTINGS_FILE, 'r', encoding='utf-8') as f:
                 settings = json.load(f)
 
             # Restore window geometry
@@ -396,7 +386,7 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
                 self.tab_widget.removeTab(0)
 
             # Restore Open Tabs
-            restored_tabs = []  # Keep track of successfully restored tabs
+            restored_tabs = []
             for tab_data in settings.get("open_tabs", []):
                 file_path = tab_data.get("file_path")
                 if file_path and os.path.exists(file_path) and os.path.isfile(file_path):
@@ -419,9 +409,10 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
                                 # Restore cursor position
                                 cursor_pos = tab_data.get("cursor_position")
                                 if cursor_pos:
-                                    text_editor.cursor_line = min(cursor_pos[0], len(text_editor.lines) - 1)
-                                    text_editor.cursor_column = min(cursor_pos[1], 
-                                        len(text_editor.lines[text_editor.cursor_line]))
+                                    line = min(cursor_pos[0], len(text_editor.lines) - 1)
+                                    column = min(cursor_pos[1], len(text_editor.lines[line]))
+                                    text_editor.cursor_line = line
+                                    text_editor.cursor_column = column
 
                                 # Restore scroll position
                                 scroll_pos = tab_data.get("scroll_position", {})
@@ -430,7 +421,7 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
                                     text_editor.horizontalScrollBar().setValue(scroll_pos.get("horizontal", 0))
 
                                 restored_tabs.append(index)
-                                text_editor.set_modified(False)  # Ensure the restored file is marked as unmodified
+                                text_editor.set_modified(False)  # Mark as unmodified after loading
 
                     except Exception as e:
                         logging.error(f"Error loading tab for '{file_path}': {e}")
@@ -449,7 +440,7 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
                 # If no tabs were restored, create a new empty tab
                 self.new_file()
 
-            logging.info(f"Settings loaded from {SETTINGS_FILE}")
+            logging.info(f"Settings loaded from {self.SETTINGS_FILE}")
             logging.info(f"Restored {len(restored_tabs)} tabs")
         except Exception as e:
             logging.error(f"Error loading settings: {e}")
@@ -462,9 +453,9 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
 
     def closeEvent(self, event):
         """Handle the window close event to save settings."""
-        # First, handle unsaved changes as per existing logic in FileOperationsMixin.closeEvent
+        # First, handle unsaved changes
         super().closeEvent(event)  # Calls FileOperationsMixin.closeEvent
 
         if event.isAccepted():
-            # Now save the settings
+            # Save settings before closing
             self.save_settings()

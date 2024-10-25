@@ -71,7 +71,8 @@ class UndoRedoMixin:
         self.cursor_column = len(self.lines[self.cursor_line]) - len(after)
 
         self.set_modified(True)
-        self.updateGeometry()  # Notify layout system
+        self.updateGeometry()
+        self.ensure_cursor_visible()
         self.update()
 
     def delete_text(self, position, text):
@@ -89,7 +90,8 @@ class UndoRedoMixin:
         self.cursor_column = start_col
 
         self.set_modified(True)
-        self.updateGeometry()  # Notify layout system
+        self.updateGeometry()
+        self.ensure_cursor_visible()
         self.update()
 
     def get_end_position(self, position, text):

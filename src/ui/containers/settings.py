@@ -21,4 +21,3 @@ class SettingsContainer(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         label = QLabel("Settings Container")
         layout.addWidget(label)
-        # Add more complex widgets here

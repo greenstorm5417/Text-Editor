@@ -124,4 +124,4 @@ class SelectionMixin:
             self.update()
 
     def mouseReleaseEvent(self, event: QMouseEvent):
-        pass  # No action needed here for now
+        pass

@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QToolButton, QHBoxLayout, QInputDialog, QMessageBox, QSizePolicy,
-    QTreeWidget, QTreeWidgetItem, QMenu
+    QWidget, QVBoxLayout, QLabel, QToolButton, QHBoxLayout, QInputDialog, 
+    QMessageBox, QSizePolicy, QTreeWidget, QTreeWidgetItem, QMenu, QApplication
 )
 from PyQt6.QtCore import Qt, QPoint
 from PyQt6.QtGui import QIcon, QDrag, QPainter, QAction
@@ -10,22 +10,20 @@ import sys
 import shutil
 import logging
 import subprocess
-from PyQt6.QtWidgets import QApplication
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
 class FileTreeWidget(QTreeWidget):
     """
-    Custom QTreeWidget to handle internal drag and drop for moving files and folders.
+    Custom QTreeWidget that handles internal drag-and-drop for moving files and folders.
     Implements lazy loading to ensure expand arrows are always visible.
     """
     def __init__(self, main_window, parent=None):
         super().__init__(parent)
         self.setHeaderHidden(True)
         self.setFont(Theme.get_default_font())
-        
-        # Configure drag and drop
+
+        # Configure drag-and-drop behavior
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True)
@@ -33,9 +31,7 @@ class FileTreeWidget(QTreeWidget):
         self.setSelectionMode(QTreeWidget.SelectionMode.SingleSelection)
         self.setSelectionBehavior(QTreeWidget.SelectionBehavior.SelectItems)
 
-                
         # Apply theme styling
-
         self.setStyleSheet(f"""
             QTreeWidget {{
                 background-color: {Theme.FILE_TREE_BACKGROUND_COLOR.name()};
@@ -74,17 +70,15 @@ class FileTreeWidget(QTreeWidget):
             }}
         """)
 
-        # Assign default icons using SVGs
         # Initialize icons
         self.dir_icon = QIcon("resources/icons/default_folder.svg")
         self.default_file_icon = QIcon("resources/icons/default_file.svg")
-        self.file_icons_path = os.path.join(os.path.dirname(__file__), '..', '..', 'resources', 'file_icons')
+        self.file_icons_path = os.path.join(os.path.dirname(__file__), '..','..','..','..','resources', 'file_icons')
         self.file_icon_cache = {}
-        
-        # Initialize state
-        self.show_hidden = False
+
+        # Store reference to main window
         self.main_window = main_window
-        
+
         # Connect signals
         self.itemExpanded.connect(self.on_item_expanded)
         self.itemClicked.connect(self.on_item_clicked)
@@ -93,38 +87,59 @@ class FileTreeWidget(QTreeWidget):
 
     def get_file_icon(self, file_path):
         """
-        Retrieves the QIcon for a given file based on its extension.
-        Caches the icons to optimize performance.
+        Retrieves the appropriate QIcon for a file based on its extension.
+        Looks for {extension}.svg in the file_icons directory.
+        
+        Args:
+            file_path (str): Full path to the file
+            
+        Returns:
+            QIcon: The icon for the file type, or default file icon if no specific icon exists
         """
+        # Get the file extension
         _, ext = os.path.splitext(file_path)
-        ext = ext.lower().lstrip('.')  # Normalize extension
-
-        if not ext:
-            # Files without an extension use the default file icon
-            return self.default_file_icon
-
+        ext = ext.lower().lstrip('.')
+        
+        # Return cached icon if available
         if ext in self.file_icon_cache:
             return self.file_icon_cache[ext]
 
-        # Construct the path to the specific file icon
-        icon_filename = f"{ext}.svg"
-        icon_full_path = os.path.join(self.file_icons_path, icon_filename)
+        try:
+            # Get project root path (calculate only once)
+            if not hasattr(self, '_project_root'):
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                self._project_root = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
 
-        if os.path.exists(icon_full_path):
-            icon = QIcon(icon_full_path)
-            if not icon.isNull():
-                self.file_icon_cache[ext] = icon
-                logging.debug(f"Loaded icon for .{ext} files from {icon_full_path}")
-                return icon
+            # Look for {extension}.svg in the file_icons directory
+            icon_path = os.path.join(
+                self._project_root,
+                'resources',
+                'file_icons',
+                f"{ext}.svg"
+            )
+            
+            logging.debug(f"Looking for icon at: {icon_path}")
+            
+            if os.path.exists(icon_path):
+                icon = QIcon(icon_path)
+                if not icon.isNull():
+                    self.file_icon_cache[ext] = icon
+                    logging.debug(f"Loaded and cached icon for .{ext} files")
+                    return icon
+                else:
+                    logging.warning(f"Failed to load icon from {icon_path}")
 
-        # Fallback to default file icon if specific icon not found or invalid
-        logging.warning(f"No icon found for .{ext} files. Using default file icon.")
+        except Exception as e:
+            logging.error(f"Error loading icon for extension .{ext}: {e}")
+
+        # Use default file icon if no specific icon was found or loaded
+        logging.debug(f"Using default icon for .{ext} files")
         self.file_icon_cache[ext] = self.default_file_icon
         return self.default_file_icon
 
     def on_item_clicked(self, item: QTreeWidgetItem, column: int):
         """
-        Slot to handle item click events.
+        Handle item click events.
         Opens the file in a new tab if the clicked item is a file.
         """
         path = item.data(0, Qt.ItemDataRole.UserRole)
@@ -133,12 +148,11 @@ class FileTreeWidget(QTreeWidget):
             self.parent().open_file_in_tab(path)
         else:
             logging.debug(f"Directory clicked: {path}")
-            # Optionally, expand/collapse the directory on single click
             item.setExpanded(not item.isExpanded())
 
     def open_context_menu(self, position):
         """
-        Opens a context menu with actions based on whether a file or folder is clicked.
+        Open a context menu with actions based on whether a file or folder is clicked.
         """
         item = self.itemAt(position)
         if not item:
@@ -152,101 +166,37 @@ class FileTreeWidget(QTreeWidget):
 
         if os.path.isfile(path):
             open_action = QAction("Open", self)
-            open_action.setIcon(QIcon("resources/icons/open_file.svg"))  # New SVG icon for Open
+            open_action.setIcon(QIcon("resources/icons/open_file.svg"))
             open_action.triggered.connect(lambda: self.parent().open_file_in_tab(path))
             menu.addAction(open_action)
 
         rename_action = QAction("Rename", self)
-        rename_action.setIcon(QIcon("resources/icons/rename.svg"))  # New SVG icon for Rename
-        rename_action.triggered.connect(lambda: self.rename_item(item, path))
+        rename_action.setIcon(QIcon("resources/icons/rename.svg"))
+        rename_action.triggered.connect(lambda: self.parent().rename_item(item, path))
         menu.addAction(rename_action)
 
         delete_action = QAction("Delete", self)
-        delete_action.setIcon(QIcon("resources/icons/delete.svg"))  # New SVG icon for Delete
-        delete_action.triggered.connect(lambda: self.delete_item(item, path))
+        delete_action.setIcon(QIcon("resources/icons/delete.svg"))
+        delete_action.triggered.connect(lambda: self.parent().delete_item(item, path))
         menu.addAction(delete_action)
 
         copy_path_action = QAction("Copy Path", self)
-        copy_path_action.setIcon(QIcon("resources/icons/copy_path.svg"))  # New SVG icon for Copy Path
-        copy_path_action.triggered.connect(lambda: self.copy_path(path))
+        copy_path_action.setIcon(QIcon("resources/icons/copy_path.svg"))
+        copy_path_action.triggered.connect(lambda: self.parent().copy_path(path))
         menu.addAction(copy_path_action)
 
         if os.path.isfile(path):
             open_external_action = QAction("Open in External Editor", self)
-            open_external_action.setIcon(QIcon("resources/icons/external_editor.svg"))  # New SVG icon
-            open_external_action.triggered.connect(lambda: self.open_in_external_editor(path))
+            open_external_action.setIcon(QIcon("resources/icons/external_editor.svg"))
+            open_external_action.triggered.connect(lambda: self.parent().open_in_external_editor(path))
             menu.addAction(open_external_action)
 
         menu.exec(self.viewport().mapToGlobal(position))
 
-    def rename_item(self, item, path):
-        """
-        Renames the selected file or folder.
-        """
-        new_name, ok = QInputDialog.getText(self, "Rename", "Enter new name:", text=os.path.basename(path))
-        if ok and new_name:
-            new_path = os.path.join(os.path.dirname(path), new_name)
-            if os.path.exists(new_path):
-                QMessageBox.warning(self, "Rename Failed", f"'{new_name}' already exists.")
-                return
-            try:
-                os.rename(path, new_path)
-                logging.info(f"Renamed '{path}' to '{new_path}'")
-                self.parent().populate_tree()
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Could not rename:\n{e}")
-                logging.error(f"Error renaming '{path}' to '{new_path}': {e}")
-
-    def delete_item(self, item, path):
-        """
-        Deletes the selected file or folder after confirmation.
-        """
-        reply = QMessageBox.question(
-            self, "Delete", f"Are you sure you want to delete '{os.path.basename(path)}'?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            try:
-                if os.path.isfile(path):
-                    os.remove(path)
-                    logging.info(f"Deleted file: {path}")
-                else:
-                    shutil.rmtree(path)
-                    logging.info(f"Deleted folder: {path}")
-                self.parent().populate_tree()
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Could not delete:\n{e}")
-                logging.error(f"Error deleting '{path}': {e}")
-
-    def copy_path(self, path):
-        """
-        Copies the full path of the selected item to the clipboard.
-        """
-        clipboard = QApplication.clipboard()
-        clipboard.setText(path)
-        logging.info(f"Copied path to clipboard: {path}")
-
-    def open_in_external_editor(self, path):
-        """
-        Opens the file in the system's default external editor.
-        """
-        try:
-            if sys.platform.startswith('darwin'):
-                subprocess.call(('open', path))
-            elif os.name == 'nt':
-                os.startfile(path)
-            elif os.name == 'posix':
-                subprocess.call(('xdg-open', path))
-            logging.info(f"Opened '{path}' in external editor.")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Could not open in external editor:\n{e}")
-            logging.error(f"Error opening '{path}' in external editor: {e}")
-
     def on_item_expanded(self, item: QTreeWidgetItem):
         """
-        Handler for the itemExpanded signal.
-        Populates the item with actual child items if it only contains the dummy child.
+        Handle the itemExpanded signal.
+        Populate the item with actual child items if it only contains the dummy child.
         """
         if item.childCount() == 1 and item.child(0).text(0) == "Loading...":
             # Remove the dummy child
@@ -254,80 +204,6 @@ class FileTreeWidget(QTreeWidget):
             # Populate with actual children
             parent_path = item.data(0, Qt.ItemDataRole.UserRole)
             self.parent().add_sub_items(item, parent_path)
-
-    def open_file_in_tab(self, file_path):
-        """
-        Attempts to open a file with different encodings and displays it in a new tab.
-        """
-        encodings = ['utf-8', 'latin1', 'cp1252', 'ascii']
-        content = None
-        used_encoding = None
-
-        for encoding in encodings:
-            try:
-                with open(file_path, 'r', encoding=encoding) as file:
-                    content = file.read()
-                    used_encoding = encoding
-                    break
-            except UnicodeDecodeError:
-                continue
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Could not open file:\n{e}")
-                logging.error(f"Error opening file '{file_path}': {e}")
-                return
-
-        if content is None:
-            QMessageBox.critical(
-                self, 
-                "Error", 
-                "Could not decode the file with any supported encoding.\n"
-                "The file might be binary or use an unsupported encoding."
-            )
-            return
-
-        file_name = os.path.basename(file_path)
-        logging.info(f"Opening file in tab: {file_path} (using {used_encoding} encoding)")
-        
-        if hasattr(self.main_window, 'add_new_tab'):
-            self.main_window.add_new_tab(content, title=file_name, file_path=file_path)
-        else:
-            logging.error("MainWindow does not have add_new_tab method.")
-            QMessageBox.critical(self, "Error", "Internal error: Could not open the file in a new tab.")
-
-    def add_sub_items(self, parent_item, parent_path):
-        """Recursively add subdirectories and files to the tree."""
-        try:
-            entries = os.listdir(parent_path)
-            # Sort entries: directories first, then files
-            entries.sort(key=lambda x: (not os.path.isdir(os.path.join(parent_path, x)), x.lower()))
-            for entry in entries:
-                if not self.show_hidden and entry.startswith('.'):
-                    continue  # Skip hidden files and folders
-                entry_path = os.path.join(parent_path, entry)
-                if os.path.isdir(entry_path):
-                    dir_item = QTreeWidgetItem(parent_item)
-                    dir_item.setText(0, entry)
-                    dir_item.setIcon(0, self.dir_icon)  # Set directory icon
-                    dir_item.setExpanded(False)  # Collapse by default
-                    dir_item.setData(0, Qt.ItemDataRole.UserRole, entry_path)  # Store the full path
-
-                    # Add a dummy child to make the item expandable
-                    dummy_child = QTreeWidgetItem(dir_item)
-                    dummy_child.setText(0, "Loading...")
-                    logging.debug(f"Added dummy child to directory: {entry_path}")
-                else:
-                    file_item = QTreeWidgetItem(parent_item)
-                    file_item.setText(0, entry)
-                    file_item.setIcon(0, self.get_file_icon(entry_path))  # Corrected line
-                    file_item.setData(0, Qt.ItemDataRole.UserRole, entry_path)  # Store the full path
-                    logging.debug(f"Added file: {entry_path}")
-        except PermissionError:
-            # Skip directories for which the user does not have permissions
-            logging.warning(f"Permission denied: {parent_path}")
-            pass
-        except Exception as e:
-            logging.error(f"Error accessing {parent_path}: {e}")
-
 
 class FileTreeContainer(QWidget):
     """
@@ -345,10 +221,10 @@ class FileTreeContainer(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        
+
         # Set container width from theme
         self.setFixedWidth(Theme.scaled_size(Theme.FILE_TREE_CONTAINER_WIDTH))
-        
+
         # Create toolbar widget
         self.toolbar = QWidget()
         self.toolbar.setFixedHeight(Theme.scaled_size(Theme.TOOLBAR_BUTTON_HEIGHT))
@@ -358,7 +234,7 @@ class FileTreeContainer(QWidget):
                 border-bottom: 1px solid {Theme.FILE_TREE_GRID_COLOR.name()};
             }}
         """)
-        
+
         toolbar_layout = QHBoxLayout(self.toolbar)
         toolbar_layout.setContentsMargins(
             Theme.TOOLBAR_BUTTON_MARGIN,
@@ -443,21 +319,6 @@ class FileTreeContainer(QWidget):
         self.toolbar.setVisible(False)
         self.placeholder_label.setVisible(True)
 
-    def create_context_menu(self):
-        menu = QMenu(self)
-        menu.setStyleSheet(f"""
-            QMenu {{
-                background-color: {Theme.FILE_TREE_BACKGROUND_COLOR.name()};
-                color: {Theme.FILE_TREE_TEXT_COLOR.name()};
-                border: 1px solid {Theme.FILE_TREE_GRID_COLOR.name()};
-            }}
-            QMenu::item:selected {{
-                background-color: {Theme.FILE_TREE_SELECTED_BACKGROUND.name()};
-            }}
-        """)
-        return menu
-
-    
     def set_root_directory(self, path):
         """
         Set the root directory and populate the tree.
@@ -482,7 +343,7 @@ class FileTreeContainer(QWidget):
         if not self.current_root:
             return
 
-        # Step 1: Save currently expanded paths
+        # Save currently expanded paths
         expanded_paths = self.get_expanded_paths()
 
         self.tree.clear()
@@ -500,10 +361,10 @@ class FileTreeContainer(QWidget):
         dummy_child.setText(0, "Loading...")
         logging.debug(f"Added dummy child to root: {self.current_root}")
 
-        # After populating, load actual contents for already expanded items
+        # Load actual contents for already expanded items
         self.load_expanded_items()
 
-        # Step 2: Restore expanded paths
+        # Restore expanded paths
         self.restore_expanded_paths(expanded_paths)
 
     def get_expanded_paths(self):
@@ -572,13 +433,12 @@ class FileTreeContainer(QWidget):
                 else:
                     file_item = QTreeWidgetItem(parent_item)
                     file_item.setText(0, entry)
-                    file_item.setIcon(0, self.tree.get_file_icon(entry_path))  # Corrected line
+                    file_item.setIcon(0, self.tree.get_file_icon(entry_path))
                     file_item.setData(0, Qt.ItemDataRole.UserRole, entry_path)  # Store the full path
                     logging.debug(f"Added file: {entry_path}")
         except PermissionError:
             # Skip directories for which the user does not have permissions
             logging.warning(f"Permission denied: {parent_path}")
-            pass
         except Exception as e:
             logging.error(f"Error accessing {parent_path}: {e}")
 
@@ -602,7 +462,7 @@ class FileTreeContainer(QWidget):
                 return
             try:
                 # Create the new file
-                with open(new_file_path, 'w', encoding='utf-8') as f:
+                with open(new_file_path, 'w', encoding='utf-8'):
                     pass  # Create an empty file
                 logging.info(f"Created file: {new_file_path}")
                 # Refresh the tree
@@ -649,10 +509,10 @@ class FileTreeContainer(QWidget):
         self.show_hidden = self.toggle_hidden_button.isChecked()
         if self.show_hidden:
             self.toggle_hidden_button.setToolTip("Hide Hidden Files")
-            self.toggle_hidden_button.setIcon(QIcon("resources/icons/hide_hidden.svg"))  # Updated to SVG
+            self.toggle_hidden_button.setIcon(QIcon("resources/icons/hide_hidden.svg"))
         else:
             self.toggle_hidden_button.setToolTip("Show Hidden Files")
-            self.toggle_hidden_button.setIcon(QIcon("resources/icons/show_hidden.svg"))  # Updated to SVG
+            self.toggle_hidden_button.setIcon(QIcon("resources/icons/show_hidden.svg"))
         self.populate_tree()
 
     def load_expanded_items(self):
@@ -675,7 +535,7 @@ class FileTreeContainer(QWidget):
 
     def open_file_in_tab(self, file_path):
         """
-        Attempts to open a file with different encodings and displays it in a new tab.
+        Attempt to open a file with different encodings and display it in a new tab.
         """
         encodings = ['utf-8', 'latin1', 'cp1252', 'ascii']
         content = None
@@ -696,8 +556,8 @@ class FileTreeContainer(QWidget):
 
         if content is None:
             QMessageBox.critical(
-                self, 
-                "Error", 
+                self,
+                "Error",
                 "Could not decode the file with any supported encoding.\n"
                 "The file might be binary or use an unsupported encoding."
             )
@@ -705,9 +565,73 @@ class FileTreeContainer(QWidget):
 
         file_name = os.path.basename(file_path)
         logging.info(f"Opening file in tab: {file_path} (using {used_encoding} encoding)")
-        
+
         if hasattr(self.main_window, 'add_new_tab'):
             self.main_window.add_new_tab(content, title=file_name, file_path=file_path)
         else:
             logging.error("MainWindow does not have add_new_tab method.")
             QMessageBox.critical(self, "Error", "Internal error: Could not open the file in a new tab.")
+
+    def rename_item(self, item, path):
+        """
+        Rename the selected file or folder.
+        """
+        new_name, ok = QInputDialog.getText(self, "Rename", "Enter new name:", text=os.path.basename(path))
+        if ok and new_name:
+            new_path = os.path.join(os.path.dirname(path), new_name)
+            if os.path.exists(new_path):
+                QMessageBox.warning(self, "Rename Failed", f"'{new_name}' already exists.")
+                return
+            try:
+                os.rename(path, new_path)
+                logging.info(f"Renamed '{path}' to '{new_path}'")
+                self.populate_tree()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Could not rename:\n{e}")
+                logging.error(f"Error renaming '{path}' to '{new_path}': {e}")
+
+    def delete_item(self, item, path):
+        """
+        Delete the selected file or folder after confirmation.
+        """
+        reply = QMessageBox.question(
+            self, "Delete", f"Are you sure you want to delete '{os.path.basename(path)}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                if os.path.isfile(path):
+                    os.remove(path)
+                    logging.info(f"Deleted file: {path}")
+                else:
+                    shutil.rmtree(path)
+                    logging.info(f"Deleted folder: {path}")
+                self.populate_tree()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Could not delete:\n{e}")
+                logging.error(f"Error deleting '{path}': {e}")
+
+    def copy_path(self, path):
+        """
+        Copy the full path of the selected item to the clipboard.
+        """
+        clipboard = QApplication.clipboard()
+        clipboard.setText(path)
+        logging.info(f"Copied path to clipboard: {path}")
+
+    def open_in_external_editor(self, path):
+        """
+        Open the file in the system's default external editor.
+        """
+        try:
+            if sys.platform.startswith('darwin'):
+                subprocess.call(('open', path))
+            elif os.name == 'nt':
+                os.startfile(path)
+            elif os.name == 'posix':
+                subprocess.call(('xdg-open', path))
+            logging.info(f"Opened '{path}' in external editor.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Could not open in external editor:\n{e}")
+            logging.error(f"Error opening '{path}' in external editor: {e}")

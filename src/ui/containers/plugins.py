@@ -14,9 +14,6 @@ from PyQt6.QtWidgets import QApplication
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
-
-
 class PluginsContainer(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -24,4 +21,3 @@ class PluginsContainer(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         label = QLabel("Plugins Container")
         layout.addWidget(label)
-        # Add more complex widgets here

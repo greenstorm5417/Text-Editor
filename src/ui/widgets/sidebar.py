@@ -4,7 +4,7 @@ from PyQt6.QtGui import QIcon
 from src.editor.themes.theme import Theme
 
 class Sidebar(QWidget):
-    icon_clicked = pyqtSignal(int)  # Signal to indicate which icon was clicked
+    icon_clicked = pyqtSignal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -12,7 +12,7 @@ class Sidebar(QWidget):
         self.layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(0)
-        self.setFixedWidth(Theme.scaled_size(50))  # Adjust width as needed
+        self.setFixedWidth(Theme.scaled_size(50))
         self.buttons = []
 
     def add_icon(self, icon_path, index):
