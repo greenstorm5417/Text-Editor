@@ -63,6 +63,56 @@ class Theme:
     LINE_COLOR = QColor("#888888")  # Default gray color
     LINE_WIDTH = 2  # Default line width (in pixels)
 
+
+
+    # Syntax highlighting colors
+    SYNTAX_COLORS = {
+        'text': QColor('#D4D4D4'),
+        'keyword': QColor('#569CD6'),
+        'keyword_declaration': QColor('#C586C0'),
+        'keyword_namespace': QColor('#C586C0'),
+        'keyword_pseudo': QColor('#C586C0'),
+        'keyword_reserved': QColor('#C586C0'),
+        'keyword_type': QColor('#4EC9B0'),
+
+        'name': QColor('#9CDCFE'),
+        'name_builtin': QColor('#DCDCAA'),
+        'name_function': QColor('#DCDCAA'),
+        'name_class': QColor('#4EC9B0'),  
+        'name_decorator': QColor('#C586C0'),
+        'name_exception': QColor('#C586C0'),
+        'name_variable': QColor('#9CDCFE'),
+        'name_constant': QColor('#9CDCFE'),
+        'name_attribute': QColor('#9CDCFE'),
+
+        'string': QColor('#CE9178'),
+        'string_doc': QColor('#608B4E'),
+        'string_interpol': QColor('#CE9178'),
+        'string_escape': QColor('#D7BA7D'),
+
+        'number': QColor('#B5CEA8'),
+        'operator': QColor('#D4D4D4'),
+        'punctuation': QColor('#D4D4D4'),
+        'comment': QColor('#6A9955'),
+        'comment_multiline': QColor('#6A9955'),
+        'comment_preproc': QColor('#C586C0'),
+
+        'generic_deleted': QColor('#D16969'),
+        'generic_emph': QColor('#D4D4D4'),
+        'generic_error': QColor('#F44747'),
+        'generic_heading': QColor('#4EC9B0'),
+        'generic_inserted': QColor('#B5CEA8'),
+        'generic_output': QColor('#D4D4D4'),
+        'generic_prompt': QColor('#D4D4D4'),
+        'generic_strong': QColor('#D4D4D4'),
+        'generic_subheading': QColor('#4EC9B0'),
+        'generic_traceback': QColor('#F44747'),
+
+        'error': QColor('#F44747'),
+    }
+
+
+
     @staticmethod
     def get_default_font():
         font = QFont()

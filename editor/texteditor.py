@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QApplication, QSizePolicy, QAbstractScrollArea
 from PyQt6.QtGui import QKeyEvent, QFontMetrics, QPainter
 from PyQt6.QtCore import Qt, QTimer, QEvent, pyqtSignal, QRect
+from PyQt5.Qsci import QsciScintilla, QsciLexerPython, QsciLexerJavaScript
 
 from editor.theme import Theme
 from editor.cursor_mixin import CursorMixin
@@ -8,6 +9,7 @@ from editor.selection_mixin import SelectionMixin
 from editor.clipboard_mixin import ClipboardMixin
 from editor.undoredo_mixin import UndoRedoMixin
 from editor.painting_mixin import PaintingMixin
+from editor.syntax_highlighter import PygmentsSyntaxHighlighter
 
 import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -131,6 +133,9 @@ class TextEditor(CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, Pai
         self.file_path = file_path
         self._is_modified = False  # Private flag to track unsaved changes
 
+        self.highlighter = None  # Add this line
+        self.highlighted_lines = [{} for _ in self.lines]
+
         self.cursor_visible = True
         self.cursor_timer = QTimer()
         self.cursor_timer.timeout.connect(self.blink_cursor)
@@ -153,7 +158,54 @@ class TextEditor(CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, Pai
         
         self.update_scrollbars()
 
-        
+    def set_highlighter(self, highlighter):
+        self.highlighter = highlighter
+        self.update_highlighting()
+
+    def update_highlighting(self):
+        if self.highlighter:
+            self.highlighted_lines = self.highlighter.highlight(self.lines)
+        else:
+            self.highlighted_lines = [[] for _ in self.lines]
+        self.update()        
+
+    def ensure_cursor_visible(self):
+        """Adjust the scrollbars to ensure the cursor is visible."""
+        fm = QFontMetrics(self.font())
+        line_height = fm.height()
+        char_width = fm.horizontalAdvance(' ')  # Average character width
+
+        # Calculate cursor position in pixels
+        cursor_x = fm.horizontalAdvance(self.lines[self.cursor_line][:self.cursor_column])
+        cursor_y = self.cursor_line * line_height
+
+        # Get the viewport size
+        viewport_width = self.viewport().width()
+        viewport_height = self.viewport().height()
+
+        # Get current scroll positions
+        x_offset = self.horizontalScrollBar().value()
+        y_offset = self.verticalScrollBar().value()
+
+        # Define some padding
+        horizontal_padding = Theme.scaled_size(20)
+        vertical_padding = Theme.scaled_size(20)
+
+        # Adjust horizontal scrollbar
+        if cursor_x < x_offset:
+            # Move scrollbar to the left to bring cursor into view
+            self.horizontalScrollBar().setValue(cursor_x - horizontal_padding)
+        elif cursor_x > x_offset + viewport_width - char_width:
+            # Move scrollbar to the right
+            self.horizontalScrollBar().setValue(cursor_x - viewport_width + char_width + horizontal_padding)
+
+        # Adjust vertical scrollbar
+        if cursor_y < y_offset:
+            # Scroll up to bring cursor into view
+            self.verticalScrollBar().setValue(cursor_y - vertical_padding)
+        elif cursor_y > y_offset + viewport_height - line_height:
+            # Scroll down
+            self.verticalScrollBar().setValue(cursor_y - viewport_height + line_height + vertical_padding)
 
 
     def blink_cursor(self):
@@ -254,6 +306,7 @@ class TextEditor(CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, Pai
                 self.lines[self.cursor_line] = prev_line + curr_line
             self.set_modified(True)
             self.updateGeometry()  # Notify layout system
+            self.update_highlighting() 
             self.update()
         elif event.key() == Qt.Key.Key_Delete:
             if self.has_selection():
@@ -276,6 +329,7 @@ class TextEditor(CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, Pai
                     self.lines[self.cursor_line] += next_line
             self.set_modified(True)
             self.updateGeometry()  # Notify layout system
+            self.update_highlighting() 
             self.update()
         elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             if self.has_selection():
@@ -295,6 +349,7 @@ class TextEditor(CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, Pai
             self.clear_selection()
             self.set_modified(True)
             self.updateGeometry()  # Notify layout system
+            self.update_highlighting() 
             self.update()
         elif event.key() == Qt.Key.Key_Tab:
             if self.has_selection():
@@ -326,6 +381,7 @@ class TextEditor(CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, Pai
                 self.cursor_column += len(text)
                 self.set_modified(True)
                 self.updateGeometry()  # Notify layout system
+                self.update_highlighting() 
                 self.update()
         else:
             # Handle other keys

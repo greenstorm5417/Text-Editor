@@ -8,6 +8,7 @@ class CursorMixin:
         elif self.cursor_line > 0:
             self.cursor_line -= 1
             self.cursor_column = len(self.lines[self.cursor_line])
+        self.ensure_cursor_visible()  # Add this line
 
     def move_cursor_right(self):
         line_length = len(self.lines[self.cursor_line])
@@ -16,16 +17,20 @@ class CursorMixin:
         elif self.cursor_line < len(self.lines) - 1:
             self.cursor_line += 1
             self.cursor_column = 0
+        self.ensure_cursor_visible()  # Add this line
 
     def move_cursor_up(self):
         if self.cursor_line > 0:
             self.cursor_line -= 1
             self.cursor_column = min(self.cursor_column, len(self.lines[self.cursor_line]))
+            self.ensure_cursor_visible()  # Add this line
 
     def move_cursor_down(self):
         if self.cursor_line < len(self.lines) - 1:
             self.cursor_line += 1
             self.cursor_column = min(self.cursor_column, len(self.lines[self.cursor_line]))
+            self.ensure_cursor_visible()  # Add this line
+
 
     def move_cursor_to_previous_word(self):
         line = self.lines[self.cursor_line]

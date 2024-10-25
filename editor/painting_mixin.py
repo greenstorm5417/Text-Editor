@@ -10,7 +10,6 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 class PaintingMixin:
     def paintEvent(self, event):
         super().paintEvent(event)
-        logging.debug("PaintingMixin.paintEvent called")
         painter = QPainter(self.viewport())
         painter.setFont(self.font())
         fm = painter.fontMetrics()
@@ -57,10 +56,41 @@ class PaintingMixin:
 
         # Draw each visible line of text
         painter.setPen(Theme.TEXT_COLOR)
+        # For each visible line
         for i in range(first_visible_line, last_visible_line + 1):
             line = self.lines[i]
             line_y = y_text_offset + (i * line_height) - y_offset
-            painter.drawText(-x_offset, line_y, line)
+            x = -x_offset
+            spans = self.highlighted_lines[i] if self.highlighted_lines else []
+
+            if not spans:
+                # No highlighting info, draw the entire line
+                painter.setPen(Theme.TEXT_COLOR)
+                painter.drawText(x, line_y, line)
+            else:
+                # Draw each span
+                pos = 0
+                for span in spans:
+                    span_start, length, format_name = span
+                    if pos < span_start:
+                        # Draw text between spans
+                        text = line[pos:span_start]
+                        painter.setPen(Theme.TEXT_COLOR)
+                        painter.drawText(x, line_y, text)
+                        x += fm.horizontalAdvance(text)
+                        pos = span_start
+                    # Draw the span
+                    text = line[span_start:span_start + length]
+                    color = Theme.SYNTAX_COLORS.get(format_name, Theme.TEXT_COLOR)
+                    painter.setPen(color)
+                    painter.drawText(x, line_y, text)
+                    x += fm.horizontalAdvance(text)
+                    pos += length
+                # Draw any remaining text after the last span
+                if pos < len(line):
+                    text = line[pos:]
+                    painter.setPen(Theme.TEXT_COLOR)
+                    painter.drawText(x, line_y, text)
 
         # Calculate cursor position
         if self.hasFocus() and self.cursor_visible:

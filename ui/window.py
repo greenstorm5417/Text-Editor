@@ -5,13 +5,14 @@ from PyQt6.QtCore import Qt
 from ui.custom_title_bar import CustomTitleBar
 from editor.texteditor import TextEditor
 from editor.theme import Theme
+from editor.syntax_highlighter import PygmentsSyntaxHighlighter
 
 from actions.fileoperations import FileOperationsMixin
 from actions.editactions import EditActionsMixin
 
 from ui.custom_tab_widget import CustomTabWidget
 from ui.sidebar import Sidebar
-from ui.containers import ContainersManager, SettingsContainer, PluginsContainer, FileTreeContainer  # Import FileTreeContainer
+from ui.containers import ContainersManager, SettingsContainer, PluginsContainer, FileTreeContainer  
 
 import json
 import os
@@ -167,6 +168,20 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         text_editor = TextEditor(content, file_path, self)  # Pass self to TextEditor
         text_editor.modifiedChanged.connect(self.update_tab_title)  # Connect the signal
 
+
+
+        # Set the syntax highlighter based on file extension
+        if file_path:
+            _, ext = os.path.splitext(file_path)
+            ext = ext.lower().lstrip('.')
+            language = self.get_language_from_extension(ext)
+            highlighter = PygmentsSyntaxHighlighter(language)
+            text_editor.set_highlighter(highlighter)
+        else:
+            # For new files, you might prompt the user to select a language
+            # For now, we'll default to plain text (no highlighting)
+            text_editor.set_highlighter(None)
+
         # Directly add the TextEditor to the layout
         layout.addWidget(text_editor)
 
@@ -176,6 +191,30 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         text_editor.setFocus()  # Set focus to new TextEditor
         return index
 
+    def get_language_from_extension(self, ext):
+        """
+        Map file extensions to Pygments lexer names.
+        """
+        extension_mapping = {
+            'py': 'python',
+            'js': 'javascript',
+            'html': 'html',
+            'css': 'css',
+            'cpp': 'cpp',
+            'c': 'c',
+            'java': 'java',
+            'json': 'json',
+            'xml': 'xml',
+            'md': 'markdown',
+            'yaml': 'yaml',
+            'yml': 'yaml',
+            'php': 'php',
+            'rb': 'ruby',
+            'go': 'go',
+            'rs': 'rust',
+            # Add more extensions as needed
+        }
+        return extension_mapping.get(ext, None)
 
     def new_file(self):
         """Create a new file in a new tab."""
