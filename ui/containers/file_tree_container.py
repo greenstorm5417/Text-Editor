@@ -256,21 +256,43 @@ class FileTreeWidget(QTreeWidget):
             self.parent().add_sub_items(item, parent_path)
 
     def open_file_in_tab(self, file_path):
-        try:
-            with open(file_path, 'r', encoding='utf-8') as file:
-                content = file.read()
-            file_name = os.path.basename(file_path)
-            logging.info(f"Opening file in tab: {file_path}")
-            # Corrected: Navigate up to MainWindow and call add_new_tab
-            main_window = self.parent().parent().parent()
-            if hasattr(main_window, 'add_new_tab'):
-                main_window.add_new_tab(content, title=file_name, file_path=file_path)
-            else:
-                logging.error("MainWindow does not have add_new_tab method.")
-                QMessageBox.critical(self, "Error", "Internal error: Could not open the file in a new tab.")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Could not open file:\n{e}")
-            logging.error(f"Error opening file '{file_path}': {e}")
+        """
+        Attempts to open a file with different encodings and displays it in a new tab.
+        """
+        encodings = ['utf-8', 'latin1', 'cp1252', 'ascii']
+        content = None
+        used_encoding = None
+
+        for encoding in encodings:
+            try:
+                with open(file_path, 'r', encoding=encoding) as file:
+                    content = file.read()
+                    used_encoding = encoding
+                    break
+            except UnicodeDecodeError:
+                continue
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Could not open file:\n{e}")
+                logging.error(f"Error opening file '{file_path}': {e}")
+                return
+
+        if content is None:
+            QMessageBox.critical(
+                self, 
+                "Error", 
+                "Could not decode the file with any supported encoding.\n"
+                "The file might be binary or use an unsupported encoding."
+            )
+            return
+
+        file_name = os.path.basename(file_path)
+        logging.info(f"Opening file in tab: {file_path} (using {used_encoding} encoding)")
+        
+        if hasattr(self.main_window, 'add_new_tab'):
+            self.main_window.add_new_tab(content, title=file_name, file_path=file_path)
+        else:
+            logging.error("MainWindow does not have add_new_tab method.")
+            QMessageBox.critical(self, "Error", "Internal error: Could not open the file in a new tab.")
 
     def add_sub_items(self, parent_item, parent_path):
         """Recursively add subdirectories and files to the tree."""
@@ -652,16 +674,40 @@ class FileTreeContainer(QWidget):
             traverse(root.child(i))
 
     def open_file_in_tab(self, file_path):
-        try:
-            with open(file_path, 'r', encoding='utf-8') as file:
-                content = file.read()
-            file_name = os.path.basename(file_path)
-            logging.info(f"Opening file in tab: {file_path}")
-            if hasattr(self.main_window, 'add_new_tab'):
-                self.main_window.add_new_tab(content, title=file_name, file_path=file_path)
-            else:
-                logging.error("MainWindow does not have add_new_tab method.")
-                QMessageBox.critical(self, "Error", "Internal error: Could not open the file in a new tab.")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Could not open file:\n{e}")
-            logging.error(f"Error opening file '{file_path}': {e}")
+        """
+        Attempts to open a file with different encodings and displays it in a new tab.
+        """
+        encodings = ['utf-8', 'latin1', 'cp1252', 'ascii']
+        content = None
+        used_encoding = None
+
+        for encoding in encodings:
+            try:
+                with open(file_path, 'r', encoding=encoding) as file:
+                    content = file.read()
+                    used_encoding = encoding
+                    break
+            except UnicodeDecodeError:
+                continue
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Could not open file:\n{e}")
+                logging.error(f"Error opening file '{file_path}': {e}")
+                return
+
+        if content is None:
+            QMessageBox.critical(
+                self, 
+                "Error", 
+                "Could not decode the file with any supported encoding.\n"
+                "The file might be binary or use an unsupported encoding."
+            )
+            return
+
+        file_name = os.path.basename(file_path)
+        logging.info(f"Opening file in tab: {file_path} (using {used_encoding} encoding)")
+        
+        if hasattr(self.main_window, 'add_new_tab'):
+            self.main_window.add_new_tab(content, title=file_name, file_path=file_path)
+        else:
+            logging.error("MainWindow does not have add_new_tab method.")
+            QMessageBox.critical(self, "Error", "Internal error: Could not open the file in a new tab.")

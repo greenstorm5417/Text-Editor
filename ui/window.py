@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QMessageBox, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QSizePolicy, QFrame, QScrollArea
 )
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
 from ui.widgets.custom_title_bar import CustomTitleBar
 from editor.texteditor import TextEditor
 from editor.theme import Theme
@@ -35,7 +36,15 @@ class MainWindow(FileOperationsMixin, EditActionsMixin, QMainWindow):
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
 
-        self.setWindowTitle('Text Editor')
+        app_icon = QIcon("resources/icons/logo.svg")
+        self.setWindowIcon(app_icon)
+
+        if os.name == 'nt':  # Windows
+            import ctypes
+            myappid = 'mycompany.myproduct.subproduct.version'  # arbitrary string
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+        self.setWindowTitle('TextForge')
         self.setGeometry(
             100, 100,
             Theme.scaled_size(Theme.WINDOW_WIDTH),
