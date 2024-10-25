@@ -86,7 +86,7 @@ class SelectionMixin:
             else:
                 # For a single click, reset the selection
                 self.clear_selection()
-
+            super().mousePressEvent(event)  
             self.update()
 
 
@@ -120,6 +120,7 @@ class SelectionMixin:
             self.cursor_line = clicked_line
             self.cursor_column = column
             self.selection_end = (self.cursor_line, self.cursor_column)
+            super().mouseMoveEvent(event)
             self.update()
 
     def mouseReleaseEvent(self, event: QMouseEvent):

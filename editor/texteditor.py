@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QWidget, QApplication, QSizePolicy, QAbstractScrollArea
-from PyQt6.QtGui import QKeyEvent, QFontMetrics
-from PyQt6.QtCore import Qt, QTimer, QEvent, pyqtSignal
+from PyQt6.QtGui import QKeyEvent, QFontMetrics, QPainter
+from PyQt6.QtCore import Qt, QTimer, QEvent, pyqtSignal, QRect
 
 from editor.theme import Theme
 from editor.cursor_mixin import CursorMixin
@@ -13,9 +13,101 @@ import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-class TextEditor(QAbstractScrollArea, CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, PaintingMixin):
-    # Signal to notify MainWindow about modification state changes
-    modifiedChanged = pyqtSignal(object)  # Emits the TextEditor instance
+class TextEditorViewport(QWidget):
+    def __init__(self, editor):
+        super().__init__()
+        self.editor = editor
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAttribute(Qt.WidgetAttribute.WA_InputMethodEnabled)
+        self.setAttribute(Qt.WidgetAttribute.WA_KeyCompression, False)
+
+    def paintEvent(self, event):
+        # Move the painting code here
+        logging.debug("TextEditorViewport.paintEvent called")
+        painter = QPainter(self)
+        painter.setFont(self.editor.font())
+        fm = painter.fontMetrics()
+
+        # Get the scroll positions
+        x_offset = self.editor.horizontalScrollBar().value()
+        y_offset = self.editor.verticalScrollBar().value()
+
+        line_height = fm.height()
+        y_text_offset = fm.ascent()
+
+        # Use the event's rect to get the clipping rectangle
+        visible_rect = event.rect()
+
+        # Calculate first and last visible lines
+        first_visible_line = max(0, int((y_offset + visible_rect.top()) / line_height))
+        last_visible_line = min(len(self.editor.lines) - 1, int((y_offset + visible_rect.bottom()) / line_height))
+
+        # Draw selection background if there is a selection
+        selection = self.editor.selection_range()
+        if selection:
+            start_line, start_col, end_line, end_col = selection
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(Theme.SELECTION_COLOR)
+            for i in range(start_line, end_line + 1):
+                if i < first_visible_line or i > last_visible_line:
+                    continue  # Skip non-visible lines
+                line = self.editor.lines[i]
+                line_y = (i * line_height) - y_offset
+                if i == start_line:
+                    sel_start_col = start_col
+                else:
+                    sel_start_col = 0
+                if i == end_line:
+                    sel_end_col = end_col
+                else:
+                    sel_end_col = len(line)
+                if sel_start_col == sel_end_col:
+                    continue
+                x_start = fm.horizontalAdvance(line[:sel_start_col]) - x_offset
+                x_end = fm.horizontalAdvance(line[:sel_end_col]) - x_offset
+                rect = QRect(x_start, line_y, x_end - x_start, line_height)
+                painter.fillRect(rect, Theme.SELECTION_COLOR)
+
+        # Draw each visible line of text
+        painter.setPen(Theme.TEXT_COLOR)
+        for i in range(first_visible_line, last_visible_line + 1):
+            line = self.editor.lines[i]
+            line_y = y_text_offset + (i * line_height) - y_offset
+            painter.drawText(-x_offset, line_y, line)
+
+        # Calculate cursor position
+        if self.hasFocus() and self.editor.cursor_visible:
+            cursor_x = fm.horizontalAdvance(self.editor.lines[self.editor.cursor_line][:self.editor.cursor_column]) - x_offset
+            cursor_y = (self.editor.cursor_line * line_height) - y_offset
+
+            # Draw the cursor using color from Theme
+            cursor_rect = QRect(cursor_x, cursor_y, 2, line_height)
+            painter.fillRect(cursor_rect, Theme.CURSOR_COLOR)
+
+    def keyPressEvent(self, event):
+        self.editor.keyPressEvent(event)
+
+    def mousePressEvent(self, event):
+        self.editor.mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        self.editor.mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self.editor.mouseReleaseEvent(event)
+
+    def focusInEvent(self, event):
+        self.editor.focusInEvent(event)
+
+    def focusOutEvent(self, event):
+        self.editor.focusOutEvent(event)
+
+    def sizeHint(self):
+        return self.editor.sizeHint()
+
+
+class TextEditor(CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, PaintingMixin, QAbstractScrollArea):
+    modifiedChanged = pyqtSignal(object) 
 
     def __init__(self, content='', file_path=None, main_window=None):
         super().__init__()
@@ -54,7 +146,14 @@ class TextEditor(QAbstractScrollArea, CursorMixin, SelectionMixin, ClipboardMixi
         # Initialize scrollbars
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+                # Initialize custom viewport
+        self.viewport_widget = TextEditorViewport(self)
+        self.setViewport(self.viewport_widget)
+        
         self.update_scrollbars()
+
+        
 
 
     def blink_cursor(self):

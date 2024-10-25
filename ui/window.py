@@ -154,6 +154,7 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
                 text_editor = widget.findChild(TextEditor)
                 if text_editor and text_editor.file_path == file_path:
                     self.tab_widget.setCurrentIndex(index)
+                    text_editor.setFocus()  # Set focus to existing TextEditor
                     return index
 
         # Create a new tab widget
@@ -166,15 +167,15 @@ class MainWindow(QMainWindow, FileOperationsMixin, EditActionsMixin):
         text_editor = TextEditor(content, file_path, self)  # Pass self to TextEditor
         text_editor.modifiedChanged.connect(self.update_tab_title)  # Connect the signal
 
-
         # Directly add the TextEditor to the layout
         layout.addWidget(text_editor)
-
 
         # Add the new tab to the tab widget
         index = self.tab_widget.addTab(new_tab, title)
         self.tab_widget.setCurrentIndex(index)
+        text_editor.setFocus()  # Set focus to new TextEditor
         return index
+
 
     def new_file(self):
         """Create a new file in a new tab."""

@@ -4,8 +4,13 @@ from PyQt6.QtCore import QRect, QSize, Qt
 
 from editor.theme import Theme
 
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
 class PaintingMixin:
     def paintEvent(self, event):
+        super().paintEvent(event)
+        logging.debug("PaintingMixin.paintEvent called")
         painter = QPainter(self.viewport())
         painter.setFont(self.font())
         fm = painter.fontMetrics()
@@ -65,6 +70,7 @@ class PaintingMixin:
             # Draw the cursor using color from Theme
             cursor_rect = QRect(cursor_x, cursor_y, 2, line_height)
             painter.fillRect(cursor_rect, Theme.CURSOR_COLOR)
+
 
 
     def sizeHint(self):
