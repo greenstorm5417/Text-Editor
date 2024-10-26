@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QAbstractScrollArea
+from PyQt6.QtWidgets import QWidget, QAbstractScrollArea, QApplication
 from PyQt6.QtGui import QKeyEvent, QFontMetrics, QPainter, QPalette
 from PyQt6.QtCore import Qt, QTimer, QEvent, pyqtSignal, QRect, QSize
 
@@ -76,7 +76,134 @@ class TextEditorViewport(QWidget):
     def sizeHint(self):
         return self.editor.sizeHint()
 
-class TextEditor(CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, PaintingMixin, QAbstractScrollArea):
+class EditorSyncMixin:
+    """
+    Mixin to provide standardized text editor state management and safety utilities.
+    This should be the first mixin in the inheritance chain for TextEditor.
+    """
+    def safe_cursor_line(self):
+        """Ensure cursor_line is within valid bounds."""
+        if not hasattr(self, 'cursor_line'):
+            self.cursor_line = 0
+        if not hasattr(self, 'lines'):
+            self.lines = ['']
+        self.cursor_line = max(0, min(self.cursor_line, len(self.lines) - 1))
+        return self.cursor_line
+
+    def safe_cursor_column(self):
+        """Ensure cursor_column is within valid bounds for the current line."""
+        if not hasattr(self, 'cursor_column'):
+            self.cursor_column = 0
+        line = self.lines[self.safe_cursor_line()]
+        self.cursor_column = max(0, min(self.cursor_column, len(line)))
+        return self.cursor_column
+
+    def ensure_valid_state(self):
+        """Ensure all editor state is valid and consistent."""
+        # Ensure we have at least one line
+        if not self.lines:
+            self.lines = ['']
+        
+        # Initialize highlighted_lines if it doesn't exist
+        if not hasattr(self, 'highlighted_lines'):
+            self.highlighted_lines = [{}]
+            
+        # Synchronize highlighted_lines with actual lines
+        # This is critical for avoiding index out of range errors
+        while len(self.highlighted_lines) > len(self.lines):
+            self.highlighted_lines.pop()
+        while len(self.highlighted_lines) < len(self.lines):
+            self.highlighted_lines.append({})
+            
+        # Ensure cursor position is valid
+        self.safe_cursor_line()
+        self.safe_cursor_column()
+        
+        # Clear invalid selections
+        if hasattr(self, 'has_selection') and self.has_selection():
+            if not self.is_valid_selection():
+                self.clear_selection()
+
+    def is_valid_selection(self):
+        """Check if current selection range is valid."""
+        if not hasattr(self, 'selection_start') or not hasattr(self, 'selection_end'):
+            return False
+        if self.selection_start is None or self.selection_end is None:
+            return False
+            
+        start_line, start_col = self.selection_start
+        end_line, end_col = self.selection_end
+        
+        # Check line bounds
+        if not (0 <= start_line < len(self.lines) and 0 <= end_line < len(self.lines)):
+            return False
+            
+        # Check column bounds
+        if not (0 <= start_col <= len(self.lines[start_line])):
+            return False
+        if not (0 <= end_col <= len(self.lines[end_line])):
+            return False
+            
+        return True
+
+    def synchronize_editor_state(self):
+        """
+        Synchronize all editor state after a change.
+        This should be called after any operation that modifies the text or cursor position.
+        """
+        try:
+            # Ensure basic state is valid
+            self.ensure_valid_state()
+            
+            # Update syntax highlighting if enabled
+            if hasattr(self, 'highlighter') and self.highlighter:
+                try:
+                    # Create a new highlighted_lines list with the correct size
+                    self.highlighted_lines = self.highlighter.highlight(self.lines)
+                    # Ensure the highlighted_lines length matches lines length
+                    while len(self.highlighted_lines) < len(self.lines):
+                        self.highlighted_lines.append({})
+                except Exception as e:
+                    logging.error(f"Error updating syntax highlighting: {e}")
+                    # Reset highlighting on error
+                    self.highlighted_lines = [{} for _ in self.lines]
+            
+            # Update scroll bars and geometry
+            self.update_scrollbars()
+            self.updateGeometry()
+            
+            # Update UI elements
+            if hasattr(self, 'line_number_area'):
+                self.update_line_number_area_width(0)
+                self.line_number_area.update()
+                
+            # Ensure cursor is visible
+            self.ensure_cursor_visible()
+            
+            # Mark as modified
+            self.set_modified(True)
+            
+            # Final viewport update
+            self.update()
+            
+        except Exception as e:
+            logging.error(f"Error synchronizing editor state: {e}")
+            # Attempt to recover to a safe state
+            self.lines = ['']
+            self.cursor_line = 0
+            self.cursor_column = 0
+            self.highlighted_lines = [{}]
+            self.clear_selection()
+            self.update()
+
+    def after_text_change(self):
+        """
+        Standardized method to be called after any text modification.
+        Replaces individual update calls scattered throughout the code.
+        """
+        self.synchronize_editor_state()
+
+class TextEditor(EditorSyncMixin, CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, PaintingMixin, QAbstractScrollArea):
     modifiedChanged = pyqtSignal(object)
 
     def __init__(self, content='', file_path=None, main_window=None):
@@ -267,6 +394,33 @@ class TextEditor(CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, Pai
                     number
                 )
 
+    def get_line_indentation(self, line):
+        """Get the indentation level (number of leading spaces) of a line."""
+        indent_length = 0
+        for char in line:
+            if char == ' ':
+                indent_length += 1
+            elif char == '\t':
+                indent_length += 4  # Convert tabs to 4 spaces
+            else:
+                break
+        return indent_length
+
+    def should_increase_indent(self, line):
+        """
+        Determine if the next line should have increased indentation.
+        This is language-specific, but here's a simple implementation for Python-like languages.
+        """
+        # Strip comments first
+        code_line = line.split('#')[0].rstrip()
+        
+        # Look for lines ending in colon (Python blocks)
+        if code_line.rstrip().endswith(':'):
+            return True
+            
+        # Additional language-specific rules can be added here
+        return False
+
     def update_scrollbars(self):
         fm = QFontMetrics(self.font())
         line_height = fm.height()
@@ -332,96 +486,385 @@ class TextEditor(CursorMixin, SelectionMixin, ClipboardMixin, UndoRedoMixin, Pai
         self.clear_selection()
         self.update()
 
-    def handle_backspace(self, cursor_before):
+    def is_identifier_char(self, char):
+        """Check if a character can be part of an identifier."""
+        return char.isalnum() or char == '_'
+
+    def is_operator_char(self, char):
+        """Check if a character is an operator symbol."""
+        operators = set('+-*/%=<>!&|^~@')
+        return char in operators
+
+    def is_delimiter(self, char):
+        """Check if a character is a delimiter."""
+        delimiters = set('()[]{},;.')
+        return char in delimiters
+
+    def get_token_boundaries(self, line, column):
+        """
+        Get the start and end positions of the token at the given column in the line.
+        Handles special cases like:
+        - Consecutive whitespace as a single token
+        - Trailing whitespace as part of the previous word token
+        - Leading whitespace as its own token
+        - Regular tokens (identifiers, strings, operators, etc.)
+        
+        Args:
+            line (str): The line of text
+            column (int): Current cursor position
+            
+        Returns:
+            tuple: (start_col, end_col)
+        """
+        if column >= len(line):
+            return column, column
+
+        # Handle start of line
+        if column == 0:
+            return 0, self.find_token_end(line, 0)
+
+        current_char = line[column]
+        
+        # Special case: if we're at whitespace after a word, look backwards
+        # to see if this is trailing whitespace after a word
+        if current_char.isspace():
+            # Look backwards to find start of whitespace
+            start = column
+            while start > 0 and line[start - 1].isspace():
+                start -= 1
+                
+            # If there's a word before this whitespace, include it
+            if start > 0 and self.is_identifier_char(line[start - 1]):
+                # Find start of the word
+                word_start = start - 1
+                while word_start > 0 and self.is_identifier_char(line[word_start - 1]):
+                    word_start -= 1
+                    
+                # Find end of whitespace
+                end = column
+                while end < len(line) and line[end].isspace():
+                    end += 1
+                    
+                return word_start, end
+            else:
+                # Just handle the whitespace itself
+                end = column
+                while end < len(line) and line[end].isspace():
+                    end += 1
+                return start, end
+
+        # If we're on an identifier character
+        if self.is_identifier_char(current_char):
+            # Find start of word
+            start = column
+            while start > 0 and self.is_identifier_char(line[start - 1]):
+                start -= 1
+                
+            # Find end of word and include any trailing whitespace
+            end = column
+            while end < len(line) and self.is_identifier_char(line[end]):
+                end += 1
+                
+            # Include trailing whitespace
+            while end < len(line) and line[end].isspace():
+                end += 1
+                
+            return start, end
+
+        # Handle operators
+        elif self.is_operator_char(current_char):
+            start = column
+            while start > 0 and self.is_operator_char(line[start - 1]):
+                start -= 1
+                
+            end = column + 1
+            while end < len(line) and self.is_operator_char(line[end]):
+                end += 1
+                
+            # Include trailing whitespace
+            while end < len(line) and line[end].isspace():
+                end += 1
+                
+            return start, end
+
+        # Handle delimiters
+        elif self.is_delimiter(current_char):
+            end = column + 1
+            while end < len(line) and line[end].isspace():
+                end += 1
+            return column, end
+
+        # Handle string literals
+        elif current_char in ('"', "'"):
+            quote_char = current_char
+            end = column + 1
+            while end < len(line):
+                if line[end] == quote_char and line[end - 1] != '\\':
+                    end += 1
+                    break
+                end += 1
+                
+            # Include trailing whitespace
+            while end < len(line) and line[end].isspace():
+                end += 1
+                
+            return column, end
+
+        # Default case: treat as single character plus trailing whitespace
+        end = column + 1
+        while end < len(line) and line[end].isspace():
+            end += 1
+        return column, end
+
+    def find_token_end(self, line, start_pos):
+        """
+        Find the end of the next token starting from start_pos.
+        Now includes trailing whitespace with word tokens.
+        """
+        pos = start_pos
+        
+        # Handle leading whitespace as a single token
+        if pos < len(line) and line[pos].isspace():
+            while pos < len(line) and line[pos].isspace():
+                pos += 1
+            return pos
+        
+        # Handle word tokens and their trailing whitespace
+        if pos < len(line) and self.is_identifier_char(line[pos]):
+            # Skip the word
+            while pos < len(line) and self.is_identifier_char(line[pos]):
+                pos += 1
+            # Include trailing whitespace
+            while pos < len(line) and line[pos].isspace():
+                pos += 1
+            return pos
+            
+        # Handle other tokens with trailing whitespace
+        while pos < len(line) and not line[pos].isspace():
+            if line[pos] in ('"', "'"):
+                quote_char = line[pos]
+                pos += 1
+                while pos < len(line):
+                    if line[pos] == quote_char and line[pos - 1] != '\\':
+                        pos += 1
+                        break
+                    pos += 1
+            else:
+                pos += 1
+                
+        # Include trailing whitespace for any token
+        while pos < len(line) and line[pos].isspace():
+            pos += 1
+                
+        return pos
+
+    def delete_next_token(self, cursor_before):
+        """Delete the token after the cursor."""
         if self.has_selection():
             text = self.get_selected_text()
             selection = self.selection_range()
-            self.add_undo_action('delete', (selection[0], selection[1]), text, cursor_before)
+            self.add_undo_action('delete', (selection[0], selection[1]), text, cursor_before, "Delete Selection")
             self.delete_selection()
-        elif self.cursor_column > 0:
-            line = self.lines[self.cursor_line]
-            deleted_text = line[self.cursor_column - 1]
-            self.add_undo_action('delete', (self.cursor_line, self.cursor_column - 1), deleted_text, cursor_before)
-            self.lines[self.cursor_line] = line[:self.cursor_column - 1] + line[self.cursor_column:]
-            self.cursor_column -= 1
-        elif self.cursor_line > 0:
-            prev_line = self.lines[self.cursor_line - 1]
-            curr_line = self.lines.pop(self.cursor_line)
-            deleted_text = '\n'
-            self.add_undo_action('delete', (self.cursor_line - 1, len(prev_line)), deleted_text, cursor_before)
-            self.cursor_line -= 1
-            self.cursor_column = len(prev_line)
-            self.lines[self.cursor_line] = prev_line + curr_line
+            return
+
+        line = self.lines[self.cursor_line]
+        if self.cursor_column >= len(line):
+            if self.cursor_line < len(self.lines) - 1:
+                # At end of line - delete newline and combine with next line
+                deleted_text = '\n'
+                self.add_undo_action('delete', (self.cursor_line, len(line)), deleted_text, cursor_before, "Delete Line Break")
+                next_line = self.lines.pop(self.cursor_line + 1)
+                self.lines[self.cursor_line] += next_line
+        else:
+            # Find token boundaries
+            _, token_end = self.get_token_boundaries(line, self.cursor_column)
+            
+            # Delete the token
+            deleted_text = line[self.cursor_column:token_end]
+            description = f"Delete Token: '{deleted_text}'"
+            self.add_undo_action('delete', (self.cursor_line, self.cursor_column), deleted_text, cursor_before, description)
+            self.lines[self.cursor_line] = line[:self.cursor_column] + line[token_end:]
+
+        self.after_text_change()
+
+    def delete_previous_token(self, cursor_before):
+        """Delete the token before the cursor."""
+        if self.has_selection():
+            text = self.get_selected_text()
+            selection = self.selection_range()
+            self.add_undo_action('delete', (selection[0], selection[1]), text, cursor_before, "Delete Selection")
+            self.delete_selection()
+            return
+
+        line = self.lines[self.cursor_line]
+        if self.cursor_column == 0:
+            if self.cursor_line > 0:
+                # At start of line - delete newline and combine with previous line
+                prev_line = self.lines[self.cursor_line - 1]
+                deleted_text = '\n'
+                self.add_undo_action('delete', (self.cursor_line - 1, len(prev_line)), deleted_text, cursor_before, "Delete Line Break")
+                self.cursor_line -= 1
+                self.cursor_column = len(prev_line)
+                self.lines[self.cursor_line] = prev_line + line
+                self.lines.pop(self.cursor_line + 1)
+        else:
+            # Find token boundaries
+            token_start, _ = self.get_token_boundaries(line, self.cursor_column - 1)
+            
+            # Delete the token
+            deleted_text = line[token_start:self.cursor_column]
+            description = f"Delete Token: '{deleted_text}'"
+            self.add_undo_action('delete', (self.cursor_line, token_start), deleted_text, cursor_before, description)
+            self.lines[self.cursor_line] = line[:token_start] + line[self.cursor_column:]
+            self.cursor_column = token_start
+
         self.after_text_change()
 
     def handle_delete(self, cursor_before):
-        if self.has_selection():
-            text = self.get_selected_text()
-            selection = self.selection_range()
-            self.add_undo_action('delete', (selection[0], selection[1]), text, cursor_before)
-            self.delete_selection()
+        """Enhanced delete handling with Ctrl+Delete support for tokens."""
+        modifiers = QApplication.keyboardModifiers()
+        if modifiers & Qt.KeyboardModifier.ControlModifier:
+            self.delete_next_token(cursor_before)
         else:
-            line = self.lines[self.cursor_line]
-            if self.cursor_column < len(line):
-                deleted_text = line[self.cursor_column]
-                self.add_undo_action('delete', (self.cursor_line, self.cursor_column), deleted_text, cursor_before)
-                self.lines[self.cursor_line] = line[:self.cursor_column] + line[self.cursor_column + 1:]
-            elif self.cursor_line < len(self.lines) - 1:
-                deleted_text = '\n'
-                self.add_undo_action('delete', (self.cursor_line, len(line)), deleted_text, cursor_before)
-                next_line = self.lines.pop(self.cursor_line + 1)
-                self.lines[self.cursor_line] += next_line
-        self.after_text_change()
+            if self.has_selection():
+                text = self.get_selected_text()
+                selection = self.selection_range()
+                self.add_undo_action('delete', (selection[0], selection[1]), text, cursor_before, "Delete Selection")
+                self.delete_selection()
+            else:
+                line = self.lines[self.cursor_line]
+                if self.cursor_column < len(line):
+                    deleted_text = line[self.cursor_column]
+                    self.add_undo_action('delete', (self.cursor_line, self.cursor_column), deleted_text, cursor_before, "Delete Character")
+                    self.lines[self.cursor_line] = line[:self.cursor_column] + line[self.cursor_column + 1:]
+                elif self.cursor_line < len(self.lines) - 1:
+                    deleted_text = '\n'
+                    self.add_undo_action('delete', (self.cursor_line, len(line)), deleted_text, cursor_before, "Join Lines")
+                    next_line = self.lines.pop(self.cursor_line + 1)
+                    self.lines[self.cursor_line] += next_line
+            self.after_text_change()
+
+    def handle_backspace(self, cursor_before):
+        """Enhanced backspace handling with Ctrl+Backspace support for tokens."""
+        modifiers = QApplication.keyboardModifiers()
+        if modifiers & Qt.KeyboardModifier.ControlModifier:
+            self.delete_previous_token(cursor_before)
+        else:
+            if self.has_selection():
+                text = self.get_selected_text()
+                selection = self.selection_range()
+                self.add_undo_action('delete', (selection[0], selection[1]), text, cursor_before, "Delete Selection")
+                self.delete_selection()
+            else:
+                line = self.lines[self.cursor_line]
+                if self.cursor_column > 0:
+                    # Check if we're at the end of a tab (multiple spaces)
+                    if self.cursor_column >= 4:
+                        preceding = line[self.cursor_column - 4:self.cursor_column]
+                        if preceding == '    ':  # If previous 4 characters are spaces
+                            deleted_text = preceding
+                            self.add_undo_action('delete', (self.cursor_line, self.cursor_column - 4), deleted_text, cursor_before, "Delete Tab")
+                            self.lines[self.cursor_line] = line[:self.cursor_column - 4] + line[self.cursor_column:]
+                            self.cursor_column -= 4
+                        else:  # Normal single character deletion
+                            deleted_text = line[self.cursor_column - 1]
+                            self.add_undo_action('delete', (self.cursor_line, self.cursor_column - 1), deleted_text, cursor_before, "Delete Character")
+                            self.lines[self.cursor_line] = line[:self.cursor_column - 1] + line[self.cursor_column:]
+                            self.cursor_column -= 1
+                    else:  # Normal single character deletion
+                        deleted_text = line[self.cursor_column - 1]
+                        self.add_undo_action('delete', (self.cursor_line, self.cursor_column - 1), deleted_text, cursor_before, "Delete Character")
+                        self.lines[self.cursor_line] = line[:self.cursor_column - 1] + line[self.cursor_column:]
+                        self.cursor_column -= 1
+                elif self.cursor_line > 0:  # Join with previous line
+                    prev_line = self.lines[self.cursor_line - 1]
+                    curr_line = self.lines.pop(self.cursor_line)
+                    deleted_text = '\n'
+                    self.add_undo_action('delete', (self.cursor_line - 1, len(prev_line)), deleted_text, cursor_before, "Join Lines")
+                    self.cursor_line -= 1
+                    self.cursor_column = len(prev_line)
+                    self.lines[self.cursor_line] = prev_line + curr_line
+
+            self.after_text_change()
 
     def handle_enter(self, cursor_before):
+        """Handle the enter key press with auto-indentation."""
         if self.has_selection():
             text = self.get_selected_text()
             selection = self.selection_range()
             self.add_undo_action('delete', (selection[0], selection[1]), text, cursor_before)
             self.delete_selection()
-        line = self.lines[self.cursor_line]
-        self.add_undo_action('insert', (self.cursor_line, self.cursor_column), '\n', cursor_before)
-        new_line = line[self.cursor_column:]
-        self.lines[self.cursor_line] = line[:self.cursor_column]
-        self.lines.insert(self.cursor_line + 1, new_line)
+
+        current_line = self.lines[self.cursor_line]
+        current_indent = self.get_line_indentation(current_line)
+        
+        # Split the current line at cursor position
+        line_before_cursor = current_line[:self.cursor_column]
+        line_after_cursor = current_line[self.cursor_column:]
+        
+        # Calculate the new indentation level
+        new_indent = current_indent
+        if self.should_increase_indent(line_before_cursor):
+            new_indent += 4  # Increase indent by 4 spaces
+        elif line_before_cursor.strip() == '':
+            # If the line is empty (only whitespace), maintain the indentation
+            new_indent = current_indent
+        
+        # Create the indentation string
+        indent_str = ' ' * new_indent
+        
+        # Add the enter action to undo stack
+        full_text = '\n' + indent_str
+        self.add_undo_action('insert', (self.cursor_line, self.cursor_column), full_text, cursor_before)
+        
+        # Update the lines
+        self.lines[self.cursor_line] = line_before_cursor
+        self.lines.insert(self.cursor_line + 1, indent_str + line_after_cursor)
+        
+        # Update cursor position
         self.cursor_line += 1
-        self.cursor_column = 0
+        self.cursor_column = new_indent
+        
+        # Clear selection
         self.clear_selection()
+        
+        # Update the editor state
         self.after_text_change()
-        self.update_scrollbars()
 
     def handle_tab(self, cursor_before):
+        """Handle tab key press with improved undo/redo support."""
         if self.has_selection():
             text = self.get_selected_text()
             selection = self.selection_range()
-            self.add_undo_action('delete', (selection[0], selection[1]), text, cursor_before)
+            self.add_undo_action('delete', (selection[0], selection[1]), text, cursor_before, "Delete Selection")
             self.delete_selection()
+
         tab_spaces = '    '
-        self.add_undo_action('insert', (self.cursor_line, self.cursor_column), tab_spaces, cursor_before)
+        self.add_undo_action('insert', (self.cursor_line, self.cursor_column), tab_spaces, cursor_before, "Insert Tab")
         line = self.lines[self.cursor_line]
         self.lines[self.cursor_line] = line[:self.cursor_column] + tab_spaces + line[self.cursor_column:]
         self.cursor_column += len(tab_spaces)
         self.after_text_change()
 
     def handle_character_input(self, text, cursor_before):
+        """Handle character input with improved undo/redo descriptions."""
         if self.has_selection():
             sel_text = self.get_selected_text()
             selection = self.selection_range()
-            self.add_undo_action('delete', (selection[0], selection[1]), sel_text, cursor_before)
+            self.add_undo_action('delete', (selection[0], selection[1]), sel_text, cursor_before, "Replace Selection")
             self.delete_selection()
-        self.add_undo_action('insert', (self.cursor_line, self.cursor_column), text, cursor_before)
+        
+        self.add_undo_action('insert', (self.cursor_line, self.cursor_column), text, cursor_before, f"Insert '{text}'")
         line = self.lines[self.cursor_line]
         self.lines[self.cursor_line] = line[:self.cursor_column] + text + line[self.cursor_column:]
         self.cursor_column += len(text)
         self.after_text_change()
 
     def after_text_change(self):
-        self.set_modified(True)
-        self.updateGeometry()
-        self.update_highlighting()
-        self.update_line_number_area_width(0)
-        self.line_number_area.update()
-        self.update()
+        """
+        Standardized method to be called after any text modification.
+        """
+        self.synchronize_editor_state()
 
     def set_modified(self, value: bool):
         if self._is_modified != value:
